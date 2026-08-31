@@ -1,0 +1,624 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Nacidos para Leer Peru - clinical pilot platform.
+  Single DynamoDB table, seven arm64 Lambdas, one HTTP API, one CloudFront distribution
+  fronting both the PWA and the API, and a Cognito user pool for managers only.
+
+Parameters:
+  WaProvider:
+    Type: String
+    Default: mock
+    AllowedValues: [mock, meta]
+    Description: >
+      WhatsApp provider implementation. "mock" writes payloads to CloudWatch and the audit table
+      without calling Meta, so the whole flow is demonstrable with no WABA and no spend.
+
+  WeeklySendCron:
+    Type: String
+    Default: cron(0 9 ? * MON *)
+    Description: Weekly send schedule, evaluated in the timezone below.
+
+  WeeklySendTimezone:
+    Type: String
+    Default: America/Lima
+
+  EnablePointInTimeRecovery:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: >
+      DynamoDB PITR. Off by default to hold the zero-cost target; see docs/costos.md for the
+      (small) price of turning it on, which is worth considering once real families are enrolled.
+
+Conditions:
+  PitrEnabled: !Equals [!Ref EnablePointInTimeRecovery, 'true']
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures: [arm64]
+    MemorySize: 512
+    Timeout: 10
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref Table
+        WA_PROVIDER: !Ref WaProvider
+        # Credentials are read from SSM SecureString at cold start and cached in memory.
+        # They are never stored as plaintext Lambda environment variables.
+        SSM_PREFIX: !Sub /nplp/${AWS::StackName}
+        NODE_OPTIONS: --enable-source-maps
+
+Resources:
+  # ---------------------------------------------------------------------------
+  # Data
+  # ---------------------------------------------------------------------------
+
+  # Single table. Retained on stack deletion: it holds the only copy of the pilot's data,
+  # including data about minors, and a stack teardown must never be what destroys it.
+  Table:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: PK, AttributeType: S }
+        - { AttributeName: SK, AttributeType: S }
+        - { AttributeName: GSI1PK, AttributeType: S }
+        - { AttributeName: GSI1SK, AttributeType: S }
+      KeySchema:
+        - { AttributeName: PK, KeyType: HASH }
+        - { AttributeName: SK, KeyType: RANGE }
+      # One GSI, serving both manager queries: families by status (ordered by anchor date) and
+      # feedback by status (ordered by timestamp). A second GSI would need its own justification.
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - { AttributeName: GSI1PK, KeyType: HASH }
+            - { AttributeName: GSI1SK, KeyType: RANGE }
+          Projection:
+            ProjectionType: ALL
+      # Drives the 12-month expiry of manager audit records and the dedup entries for
+      # WhatsApp message ids. Deletion by TTL is free.
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: !If [PitrEnabled, true, false]
+      # No SSESpecification: DynamoDB encrypts at rest with an AWS owned key by default, at no
+      # cost. A customer managed KMS key would add a monthly charge for no benefit here.
+
+  # ---------------------------------------------------------------------------
+  # Manager identity (Cognito). Families never touch this.
+  # ---------------------------------------------------------------------------
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-gestores
+      # Lite covers TOTP MFA and carries a non-expiring 10,000 MAU free tier; see docs/costos.md.
+      UserPoolTier: LITE
+      MfaConfiguration: 'ON'
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      # No self-registration: managers are created by an administrator.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          TemporaryPasswordValidityDays: 7
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - { Name: verified_email, Priority: 1 }
+      UserAttributeUpdateSettings:
+        AttributesRequireVerificationBeforeUpdate: [email]
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: !Sub ${AWS::StackName}-gestor-pwa
+      # Public client: the manager surface is a browser app and cannot hold a secret.
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 1
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: days
+      SupportedIdentityProviders: [COGNITO]
+
+  # A single group. Five people do not need granular RBAC.
+  GestoresGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: gestores
+      Description: Leer en Familia staff with access to family data and the feedback inbox.
+      UserPoolId: !Ref UserPool
+
+  # ---------------------------------------------------------------------------
+  # HTTP API. Family routes authenticate with a signed token validated inside the
+  # handler; manager routes sit behind the native Cognito JWT authorizer.
+  # ---------------------------------------------------------------------------
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: $default
+      # No CORS block: the PWA and the API are served from the same CloudFront domain,
+      # so browser requests are same-origin and never preflight.
+      Auth:
+        Authorizers:
+          GestorJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience:
+                - !Ref UserPoolClient
+
+  # ---------------------------------------------------------------------------
+  # Lambdas (7). One log group each, 14-day retention, no exceptions.
+  # ---------------------------------------------------------------------------
+
+  RegisterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-register
+      RetentionInDays: 14
+
+  RegisterFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/register/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      LoggingConfig:
+        LogGroup: !Ref RegisterLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        Enroll:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/registro
+            Method: POST
+
+  ContentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-content
+      RetentionInDays: 14
+
+  ContentFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/content/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      LoggingConfig:
+        LogGroup: !Ref ContentLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        GetContent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/contenido/{proxy+}
+            Method: GET
+
+  TrackingLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-tracking
+      RetentionInDays: 14
+
+  TrackingFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/tracking/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      LoggingConfig:
+        LogGroup: !Ref TrackingLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        Track:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/seguimiento/{proxy+}
+            Method: POST
+
+  FeedbackLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-feedback
+      RetentionInDays: 14
+
+  FeedbackFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/feedback/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      LoggingConfig:
+        LogGroup: !Ref FeedbackLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        Submit:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/feedback
+            Method: POST
+        List:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/feedback
+            Method: GET
+
+  # Manager surface. Also owns replying to feedback, which is why it can send WhatsApp
+  # messages and read the Meta credentials; see docs/decisiones.md D-004.
+  AdminLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-admin
+      RetentionInDays: 14
+
+  AdminFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/admin/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      Timeout: 29
+      LoggingConfig:
+        LogGroup: !Ref AdminLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        Gestor:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/gestor/{proxy+}
+            Method: ANY
+            Auth:
+              Authorizer: GestorJwt
+
+  WeeklySendLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-weekly-send
+      RetentionInDays: 14
+
+  WeeklySendFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/weekly-send/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      # Walks every enrolled family; generous timeout so a slow Meta call cannot truncate the run.
+      Timeout: 300
+      LoggingConfig:
+        LogGroup: !Ref WeeklySendLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+
+  WaWebhookLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /nplp/${AWS::StackName}/fn-wa-webhook
+      RetentionInDays: 14
+
+  WaWebhookFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Format: esm
+        Target: es2023
+        Minify: true
+        Sourcemap: true
+        OutExtension: ['.js=.mjs']
+        EntryPoints:
+          - src/handlers/wa-webhook/index.ts
+    Properties:
+      CodeUri: ../backend
+      Handler: index.handler
+      # Meta requires a response inside 5 seconds and retries otherwise.
+      Timeout: 5
+      LoggingConfig:
+        LogGroup: !Ref WaWebhookLogGroup
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref Table }
+        - !Ref SsmReadPolicy
+      Events:
+        Verify:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/whatsapp/webhook
+            Method: GET
+        Receive:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/whatsapp/webhook
+            Method: POST
+
+  # ---------------------------------------------------------------------------
+  # Shared IAM: read the SecureString parameters and decrypt them with the
+  # AWS managed SSM key. Parameters are created out of band, never by this template:
+  # CloudFormation cannot create SecureString parameters, and secrets never enter the repo.
+  # ---------------------------------------------------------------------------
+
+  SsmReadPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Read and decrypt the pilot's SecureString parameters.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: [ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
+            Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/nplp/${AWS::StackName}/*
+          - Effect: Allow
+            Action: kms:Decrypt
+            Resource: !Sub arn:${AWS::Partition}:kms:${AWS::Region}:${AWS::AccountId}:alias/aws/ssm
+
+  # ---------------------------------------------------------------------------
+  # Weekly scheduler
+  # ---------------------------------------------------------------------------
+
+  SchedulerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: scheduler.amazonaws.com }
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-weekly-send
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt WeeklySendFunction.Arn
+
+  WeeklySchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: !Sub ${AWS::StackName}-weekly-send
+      Description: Weekly WhatsApp send, one message per enrolled family per program week.
+      ScheduleExpression: !Ref WeeklySendCron
+      ScheduleExpressionTimezone: !Ref WeeklySendTimezone
+      FlexibleTimeWindow:
+        Mode: 'OFF'
+      Target:
+        Arn: !GetAtt WeeklySendFunction.Arn
+        RoleArn: !GetAtt SchedulerRole.Arn
+        # A retry that reaches the handler again must not produce a second charged message.
+        # Idempotency is enforced on (family_id, iso_week) in the handler, not here.
+        RetryPolicy:
+          MaximumRetryAttempts: 2
+
+  # ---------------------------------------------------------------------------
+  # PWA hosting: private bucket, CloudFront with Origin Access Control.
+  # ---------------------------------------------------------------------------
+
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudfront.amazonaws.com }
+            Action: s3:GetObject
+            Resource: !Sub ${WebBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub ${AWS::StackName}-web-oac
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Rewrites client-side routes to the SPA shell. Attached only to the S3 behaviour, so an
+  # API 401/403/404 is never masked by an HTML page. CloudFront Functions bill after
+  # 2M invocations a month; this pilot will not approach that.
+  SpaRouterFunction:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name: !Sub ${AWS::StackName}-spa-router
+      AutoPublish: true
+      FunctionConfig:
+        Comment: Serve index.html for extensionless client-side routes.
+        Runtime: cloudfront-js-2.0
+      FunctionCode: |
+        function handler(event) {
+          var request = event.request;
+          var uri = request.uri;
+          var lastSegment = uri.substring(uri.lastIndexOf('/') + 1);
+          if (lastSegment.indexOf('.') === -1) {
+            request.uri = '/index.html';
+          }
+          return request;
+        }
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub ${AWS::StackName} - PWA and API
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        # All edge locations, including Lima. Data transfer stays inside the perpetual
+        # 1 TB/month CloudFront free tier at this volume regardless of price class.
+        PriceClass: PriceClass_All
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+          - Id: api
+            DomainName: !Sub ${Api}.execute-api.${AWS::Region}.amazonaws.com
+            CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          Compress: true
+          # Managed-CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          FunctionAssociations:
+            - EventType: viewer-request
+              FunctionARN: !GetAtt SpaRouterFunction.FunctionMetadata.FunctionARN
+        CacheBehaviors:
+          - PathPattern: /api/*
+            TargetOriginId: api
+            ViewerProtocolPolicy: https-only
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            Compress: true
+            # Managed-CachingDisabled
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            # Managed-AllViewerExceptHostHeader: forwards Authorization, rewrites Host for
+            # API Gateway. Without this the JWT authorizer never sees the token.
+            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
+        # No Aliases and no ACM certificate: the stack works on the *.cloudfront.net domain.
+        # Pointing a CNAME at it from an existing registrar avoids a Route 53 hosted zone.
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+Outputs:
+  SiteUrl:
+    Description: PWA entry point. The family surface is /app, the manager surface is /gestor.
+    Value: !Sub https://${Distribution.DomainName}
+  ApiBaseUrl:
+    Description: API base URL, same origin as the PWA.
+    Value: !Sub https://${Distribution.DomainName}/api
+  WebBucketName:
+    Description: Bucket to sync the built PWA into.
+    Value: !Ref WebBucket
+  TableName:
+    Description: Single DynamoDB table.
+    Value: !Ref Table
+  UserPoolId:
+    Value: !Ref UserPool
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+  SsmPrefix:
+    Description: Path under which the SecureString parameters must be created out of band.
+    Value: !Sub /nplp/${AWS::StackName}

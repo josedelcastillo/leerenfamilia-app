@@ -109,3 +109,52 @@ La mecánica, que era lo importante y no dependía de cuál fuera el ancla:
 - **Fecha de ingreso vs. escaneo del QR**: por ahora se toman como el mismo instante. Si más adelante se
   necesita que el ingreso sea una fecha declarada distinta (p. ej. la del primer control), se agrega como campo
   propio sin tocar el cálculo, que ya opera sobre `anchor_date`.
+
+---
+
+## D-004 — `fn-feedback-reply` se fusiona con `fn-admin`
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+El diagrama de arquitectura del encargo dibuja ocho cajas de Lambda (`fn-register`, `fn-content`,
+`fn-tracking`, `fn-feedback`, `fn-admin`, `fn-weekly-send`, `fn-feedback-reply`, `fn-wa-webhook`) pero el
+texto inmediatamente debajo dice **"Siete Lambdas"**. Se implementan siete: la respuesta del gestor a un
+feedback vive dentro de `fn-admin`.
+
+Además de cuadrar el número, la fusión es la que reduce superficie: responder un feedback es una acción de
+gestor, ya autenticada por el autorizador JWT de Cognito, y es la única ruta de familia que necesitaría
+permiso para enviar por WhatsApp y leer las credenciales de Meta. Si la respuesta viviera en `fn-feedback`
+—la función que escriben las familias, sin login—, esa función pública cargaría acceso al token de Meta sin
+necesitarlo.
+
+Alternativa descartada: dejar `fn-feedback-reply` como octava Lambda y contradecir la restricción.
+Si prefiere las ocho, es revertir esta decisión; el costo es el mismo (Lambda no cobra por función).
+
+---
+
+## D-005 — Cognito Lite con MFA TOTP: verificado, US$0 a este volumen
+
+**Fecha:** 2026-08-31 · **Estado:** vigente · **Resuelve:** la verificación que pedía la sección 6 del encargo
+
+Verificado contra la documentación pública de precios de Cognito, no asumido:
+
+| Tier | Precio | Free tier | Vence |
+|---|---|---|---|
+| **Lite** | desde US$0.0055/MAU | 10 000 MAU/mes | **No vence** (perpetuo, clientes nuevos y existentes) |
+| Essentials | US$0.015/MAU | 10 000 MAU/mes | No vence |
+| Plus | US$0.020/MAU | **Sin free tier**, cobra desde el primer usuario | — |
+
+**MFA con app de autenticación (TOTP) está incluido en Lite y no tiene costo por uso.** No hace falta subir a
+Essentials ni a Plus para cumplir el requisito de MFA. Con ~5 gestores contra un free tier perpetuo de
+10 000 MAU, el user pool cuesta **US$0/mes**, y seguiría costando US$0 aunque el número de gestores se
+multiplicara por mil.
+
+Decisión: **tier Lite, `MfaConfiguration: ON`, `EnabledMfas: [SOFTWARE_TOKEN_MFA]`.**
+
+**MFA por SMS queda excluido deliberadamente.** No es una limitación del tier: los SMS se facturan aparte vía
+SNS por mensaje, y enviar a Perú además exige resolver origination number y salir del sandbox de SNS. TOTP
+evita el gasto y el trámite. El costo para el gestor es tener que instalar una app de autenticación.
+
+Lo que **no** entra por venir en Plus: threat protection, autenticación adaptativa por riesgo y detección de
+credenciales comprometidas. Para 5 cuentas creadas a mano, con MFA obligatorio y sin auto-registro, la
+relación costo/beneficio no lo justifica. Queda anotado por si el alcance cambia.

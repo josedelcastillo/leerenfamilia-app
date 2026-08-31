@@ -1,0 +1,26 @@
+{
+  "name": "@nplp/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Nacidos para Leer Peru - backend Lambdas",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.883.0",
+    "@aws-sdk/client-ssm": "^3.883.0",
+    "@aws-sdk/lib-dynamodb": "^3.883.0",
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^22.15.0",
+    "typescript": "^5.7.0"
+  }
+}
