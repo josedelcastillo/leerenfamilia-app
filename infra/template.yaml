@@ -23,6 +23,14 @@ Parameters:
     Type: String
     Default: America/Lima
 
+  WaGraphVersion:
+    Type: String
+    Default: v21.0
+    Description: >
+      Meta Graph API version, pinned so a new release cannot change our payload shape overnight.
+      Confirm against Meta's changelog before go-live: the WABA does not exist yet and the pilot
+      starts in September 2026.
+
   EnablePointInTimeRecovery:
     Type: String
     Default: 'false'
@@ -47,6 +55,7 @@ Globals:
         # Credentials are read from SSM SecureString at cold start and cached in memory.
         # They are never stored as plaintext Lambda environment variables.
         SSM_PREFIX: !Sub /nplp/${AWS::StackName}
+        WA_GRAPH_VERSION: !Ref WaGraphVersion
         NODE_OPTIONS: --enable-source-maps
 
 Resources:
@@ -404,8 +413,11 @@ Resources:
     Properties:
       CodeUri: ../backend
       Handler: index.handler
-      # Meta requires a response inside 5 seconds and retries otherwise.
-      Timeout: 5
+      # Meta wants a response inside 5 seconds and retries otherwise, and the handler is built to
+      # answer well within that. The timeout is higher on purpose: killing a run mid-processing
+      # would leave a claimed message id with nothing written for it, and lose the message. A slow
+      # run that Meta retries is harmless — the retry is deduplicated and the original still lands.
+      Timeout: 15
       LoggingConfig:
         LogGroup: !Ref WaWebhookLogGroup
       Policies:

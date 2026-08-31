@@ -185,3 +185,51 @@ respuesta. Está anotado como el hallazgo 11 de `00-entendimiento.md` y sigue ab
 **Sin palabra de reingreso.** Ningún documento define cómo vuelve una familia que se dio de baja. El dominio
 ya soporta el reingreso (`applyOptIn` limpia el `optOutAt`), pero no hay palabra clave que lo dispare: hoy
 tiene que hacerlo un gestor. Queda pendiente de definir con Leer en Familia.
+
+---
+
+## D-007 — El webhook procesa de forma síncrona y no admite ningún bypass de firma
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+Tres decisiones sobre `fn-wa-webhook`, las tres desviaciones o precisiones respecto del encargo.
+
+### 1. Procesa síncrono, no "responde y procesa después"
+
+El encargo pide responder 200 en menos de 5 s y procesar después. Encolar exigiría una cola SQS y una
+octava Lambda, y romper la restricción de siete. A este volumen no hace falta: un webhook trae uno o dos
+mensajes, cada uno son dos o tres escrituras a DynamoDB de milisegundos, y el presupuesto de 5 s sobra.
+
+El timeout de la Lambda es de **15 s, no de 5**, y es a propósito. Matar la ejecución a los 5 s dejaría un
+`message_id` reclamado sin nada escrito para él, y ese mensaje se perdería. Una ejecución lenta que Meta
+reintenta es inofensiva: el reintento se deduplica y la original termina igual.
+
+Si el volumen creciera —otro piloto, más familias— esto se revisa. Hoy sería complejidad sin beneficio.
+
+### 2. La validación de firma no tiene modo de desarrollo
+
+`X-Hub-Signature-256` se valida siempre, antes de parsear y antes de tocar la base. **No hay flag que la
+desactive en modo mock**, porque esos flags terminan activados en producción. Si `WA_APP_SECRET` no existe en
+SSM, la Lambda falla y el webhook no responde 200: falla hacia rechazar, nunca hacia aceptar.
+
+Para ejercitar el webhook sin WABA, se crea el parámetro con cualquier valor y se firman las peticiones de
+prueba con ese mismo secreto; `signMetaBody()` está exportado justamente para eso.
+
+Dos detalles de implementación que son los que suelen fallar: el HMAC se calcula sobre los **bytes crudos**
+del cuerpo, no sobre el JSON re-serializado —reparsear y volver a serializar reordena claves y la firma deja
+de coincidir—, y la comparación es de tiempo constante. Ambos con test.
+
+### 3. La reclamación del `message_id` se devuelve si el procesamiento falla
+
+La deduplicación reclama el id **antes** de trabajar, con escritura condicional, para que dos reintentos
+concurrentes no puedan actuar los dos. Pero si el procesamiento falla después de reclamar, la reclamación se
+libera, de modo que el reintento de Meta sí se procese.
+
+El criterio: perder en silencio el mensaje de una madre es peor que archivarlo dos veces.
+
+### 4. Los mensajes de números desconocidos se descartan
+
+Un mensaje entrante de un número que no está inscrito no tiene familia a la que colgarse. Se registra en el
+log y se descarta; **no se inventa una familia a partir de un mensaje entrante**. Es un caso esperable —un
+número mal tipeado en el registro por QR, un familiar que usa otro celular— y hoy solo es visible en
+CloudWatch. Si aparece con frecuencia en el piloto, merece una bandeja aparte en la vista del gestor.

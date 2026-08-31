@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 2**. Infraestructura definida y construida, capa de dominio completa y probada; la integración con WhatsApp, la PWA y los informes llegan en las fases 3 a 7.
+Estado: **fase 3**. Infraestructura, dominio e integración con WhatsApp (proveedor con mock y webhook) construidos y probados; el envío semanal, la PWA y los informes llegan en las fases 4 a 7.
 
 ## Forma general
 
@@ -185,6 +185,41 @@ Un test de arquitectura (`test/domain/purity.test.ts`) verifica en cada corrida 
 importe el SDK de AWS, importe de capas externas, lea el reloj o el entorno, o haga I/O. Si alguien rompe la
 regla, falla el build en vez de descubrirse en revisión.
 
+## Integración WhatsApp (fase 3)
+
+`WhatsAppProvider` tiene dos implementaciones detrás de la misma interfaz, elegidas por `WA_PROVIDER`:
+
+- `MetaCloudProvider` — Graph API directo, versión fijada por el parámetro `WaGraphVersion`.
+- `MockProvider` — no llama a Meta. Escribe el payload a CloudWatch y a la tabla, con un id de mensaje
+  prefijado `wamid.MOCK-` para que un envío simulado nunca se confunda con uno real en los datos ni en el
+  informe final.
+
+**Cualquier valor que no sea exactamente `meta` selecciona el mock.** Una variable mal escrita debe fallar
+hacia no enviar nada, nunca hacia enviar mensajes reales a familias reales con una configuración sin
+verificar.
+
+### Webhook
+
+| Aspecto | Cómo |
+|---|---|
+| Verificación (`GET`) | `hub.challenge` se devuelve solo si `hub.verify_token` coincide, comparado en tiempo constante |
+| Firma (`POST`) | HMAC-SHA256 sobre los **bytes crudos**, comparación de tiempo constante, 403 si no valida. Sin bypass |
+| Deduplicación | Reclamación condicional de `message.id`, liberada si el procesamiento falla |
+| Ventana de servicio | Cada entrante actualiza `lastInboundAt` del cuidador |
+| Estados | Un ítem por `(wamid, status)`, con el objeto `pricing` verbatim |
+| Entrantes de texto | Se archivan como `consulta` abierta en la misma bandeja que la PWA |
+| Bajas | `BAJA`/`STOP`/`SALIR` exactos: opt-out más confirmación por mensaje libre |
+| Aislamiento | Un evento que falla no detiene el resto del lote |
+
+El detalle de las decisiones y sus motivos está en `decisiones.md` D-006 y D-007.
+
+### Secretos en el cold start
+
+`ParameterStore` lee los `SecureString` en lote y los cachea en memoria **con vencimiento de 15 minutos**.
+No es solo caché: un contenedor caliente sosteniendo un token rotado durante horas sería una caída que
+parece un problema de Meta. Las lecturas de parámetros estándar en SSM no se cobran, así que el refresco es
+gratis.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -201,7 +236,7 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 116 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 193 tests, todos pasan |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |
 | `sam deploy` | **No ejecutado** — no hay credenciales AWS en este entorno |
