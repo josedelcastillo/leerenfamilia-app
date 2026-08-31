@@ -233,3 +233,51 @@ Un mensaje entrante de un número que no está inscrito no tiene familia a la qu
 log y se descarta; **no se inventa una familia a partir de un mensaje entrante**. Es un caso esperable —un
 número mal tipeado en el registro por QR, un familiar que usa otro celular— y hoy solo es visible en
 CloudWatch. Si aparece con frecuencia en el piloto, merece una bandeja aparte en la vista del gestor.
+
+---
+
+## D-008 — El envío semanal reclama antes de enviar, y no reintenta lo ambiguo
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+El encargo dice que un reintento del scheduler **no puede generar un segundo cobro**. Eso fija el orden de
+las operaciones y no al revés.
+
+### El orden
+
+El registro `DELIVERY#<iso_week>` se escribe con condición **antes de enviar el primer mensaje**. Si se
+enviara primero, una caída entre el envío y la escritura dejaría al reintento sin saber que ya se envió, y
+cobraría dos veces. Al reclamar primero, el peor caso es un mensaje que no sale — recuperable — en vez de uno
+que se cobra dos veces, que no lo es. Hay un test que verifica el orden de las llamadas, no solo el resultado.
+
+### Tres estados por destinatario, no dos
+
+El registro guarda un estado por cuidador, porque un fallo de uno no debe bloquear al otro:
+
+| Estado | Qué significa | ¿Se reintenta? |
+|---|---|---|
+| `enviado` | Meta devolvió un `wamid` | No, ya está |
+| `fallido` | Meta respondió con error HTTP: **no** lo aceptó | Sí, es seguro |
+| `pendiente` | Timeout o fallo de red: **no sabemos** si lo aceptó | **No, nunca automáticamente** |
+
+La distinción entre `fallido` y `pendiente` es la que hace que esto funcione. Un error de Meta es
+información: el mensaje no entró y reintentarlo no cobra dos veces. Un timeout no es información: pudo haber
+entrado. Reintentar un `pendiente` es exactamente el segundo cobro que la restricción prohíbe.
+
+Los `pendiente` salen en el reporte semanal bajo `needsReview` y los resuelve una persona mirando la consola
+de Meta. Es un caso raro —requiere una caída en la ventana exacta entre reclamar y confirmar— y visible.
+
+### El reporte semanal
+
+`runWeeklySend` devuelve el conteo de familias omitidas **por razón**, no solo el total de mensajes. El
+modelo operativo §5.4 exige un reporte semanal de implementación, y "cuántas familias no recibieron nada esta
+semana y por qué" es su contenido. Sale como una línea de log estructurada por corrida.
+
+### Datos de demostración
+
+El registro por QR (`fn-register`) llega en la fase 5, junto con la superficie de la familia y la captura del
+consentimiento. Para que el ciclo sea demostrable antes de eso, `backend/scripts/seed-demo.ts` crea el
+programa, las ocho semanas placeholder y tres familias en semanas distintas del programa —que es justamente
+la situación que crea D-003—. Los identificadores llevan prefijo `demo-` y los teléfonos están en el rango
+`+5199999xxxx`, que no es un prefijo real de celular peruano: los datos de prueba nunca deben poder
+confundirse con datos del piloto.

@@ -17,7 +17,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 | 1 | Scaffolding, template SAM, DynamoDB, Cognito, arquitectura | ✅ |
 | 2 | Dominio y tests: cronograma, elegibilidad, ventana de servicio, opt-in, feedback | ✅ |
 | 3 | Proveedor de WhatsApp con mock, webhook con HMAC, idempotencia | ✅ |
-| 4 | Scheduler semanal y envío end-to-end en modo mock | ⏳ |
+| 4 | Scheduler semanal y envío end-to-end en modo mock | ✅ |
 | 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ⏳ |
 | 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ⏳ |
 | 7 | Exportación CSV de métricas del piloto | ⏳ |
@@ -82,6 +82,17 @@ aws ssm put-parameter --type SecureString --name /nplp/<stack>/WA_ACCESS_TOKEN -
 
 El piloto se puede desarrollar y demostrar entero con `WaProvider=mock`, sin WABA y sin gastar nada: el
 proveedor mock escribe el payload a CloudWatch y a la tabla de auditoría en vez de llamar a Meta.
+
+Para ver el ciclo completo antes de que exista el registro por QR (fase 5), siembre datos de demostración e
+invoque el envío semanal:
+
+```bash
+cd backend && TABLE_NAME=<tabla> node scripts/seed-demo.ts
+aws lambda invoke --function-name <stack>-fn-weekly-send /dev/stdout
+```
+
+La siembra crea tres familias en semanas distintas del programa, que es la situación que produce el anclaje
+al ingreso. Todos los identificadores llevan prefijo `demo-`.
 
 ## Protección de datos
 

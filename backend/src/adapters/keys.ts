@@ -42,6 +42,10 @@ export const GSI1 = {
    * Phone number to family. Required by the webhook: an inbound WhatsApp message carries only the
    * sender's number, and without this the only alternative is scanning the table per message.
    */
+  /** Every active program, so the weekly scheduler does not need one configured by name. */
+  activePrograms: 'PROGRAMS#activos',
+  programSort: (programId: string) => programId,
+
   byMsisdn: (msisdn: string) => `MSISDN#${msisdn}`,
   msisdnSort: (familyId: string) => `FAMILY#${familyId}`,
 } as const;

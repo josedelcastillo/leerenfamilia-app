@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 3**. Infraestructura, dominio e integración con WhatsApp (proveedor con mock y webhook) construidos y probados; el envío semanal, la PWA y los informes llegan en las fases 4 a 7.
+Estado: **fase 4**. Infraestructura, dominio, integración con WhatsApp y envío semanal construidos y probados, con el ciclo completo verificado en modo mock; la PWA y los informes llegan en las fases 5 a 7.
 
 ## Forma general
 
@@ -220,6 +220,36 @@ No es solo caché: un contenedor caliente sosteniendo un token rotado durante ho
 parece un problema de Meta. Las lecturas de parámetros estándar en SSM no se cobran, así que el refresco es
 gratis.
 
+## Envío semanal (fase 4)
+
+`fn-weekly-send` lo dispara EventBridge Scheduler los lunes 09:00 hora de Lima. Por cada programa activo
+recorre sus familias, calcula la semana desde la `anchor_date` guardada, decide elegibilidad y envía.
+
+**El orden importa y es la garantía de que nadie paga dos veces**: el registro `DELIVERY#<iso_week>` se
+escribe con escritura condicional *antes* de enviar el primer mensaje. Ver `decisiones.md` D-008 para los
+tres estados por destinatario y por qué un `pendiente` no se reintenta nunca de forma automática.
+
+### El enlace que recibe la familia
+
+El botón del template lleva un token HMAC de 90 días que identifica **al cuidador**, no solo a la familia —
+hace falta para saber si la bitácora la llenó la madre o el padre. Se reemite en cada envío semanal, así que
+una familia activa nunca llega al vencimiento. La clave está en `APP_TOKEN_SECRET` (SSM `SecureString`).
+
+Un token con el payload editado no valida: la firma cubre familia, cuidador y vencimiento. Con test.
+
+### Reconciliación con la factura de Meta
+
+Al enviar se escribe `WAMID#<wamid> / META` con la familia y la semana ISO. El webhook de `statuses` escribe
+en esa **misma partición** el objeto `pricing` verbatim. Reconciliar una línea de la factura de Meta contra
+una familia y una semana es entonces un solo Query, y se puede ver si el template está cayendo como
+`utility` o como `marketing`, que es la diferencia de precio.
+
+### La hora del día
+
+El scheduler corre en `America/Lima` y la fecha calendario se resuelve con `Intl`, no restando cinco horas.
+Perú no tiene horario de verano, pero la conversión explícita mantiene esto correcto si la plataforma se usa
+en otro lado — y es la frontera de la que depende todo el cálculo de semanas.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -236,7 +266,7 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 193 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 238 tests, todos pasan |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |
 | `sam deploy` | **No ejecutado** — no hay credenciales AWS en este entorno |
