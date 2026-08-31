@@ -7,7 +7,7 @@ Una entrada por decisión, con su consecuencia técnica. No se editan: se supers
 
 ## D-001 — El cronograma se ancla a la fecha de nacimiento (paramétrico)
 
-**Fecha:** 2026-08-31 · **Estado:** vigente · **Resuelve:** contradicción 1 de `00-entendimiento.md`
+**Fecha:** 2026-08-31 · **Estado:** ~~superseded por D-003~~ · **Resuelve:** contradicción 1 de `00-entendimiento.md`
 
 La semana del programa se cuenta desde la **fecha de nacimiento del bebé**, no desde la fecha de registro.
 Una familia que se registra con el bebé de 3 semanas entra en la **semana 3** del programa.
@@ -60,3 +60,52 @@ Interpretación aplicada: **permanencia y parametrización, no capacidad**.
 
 Costo de esta decisión: un atributo `program_id` en la familia y una partición más en la tabla única.
 No agrega infraestructura y no mueve la meta de US$0/mes.
+
+---
+
+## D-003 — El cronograma se ancla a la fecha de ingreso al programa
+
+**Fecha:** 2026-08-31 · **Estado:** vigente · **Supersede:** D-001
+
+La semana del programa se cuenta desde la **fecha de ingreso de la familia al programa**.
+Toda familia empieza en la **semana 1** y recibe las 8 semanas completas, sin importar la edad del bebé al ingresar.
+
+Sigue siendo paramétrico, ahora al revés: la política por defecto es `enrollment_date`, y `birth_date` queda
+disponible como alternativa para pilotos futuros.
+
+### Qué se conserva de D-001
+
+La mecánica, que era lo importante y no dependía de cuál fuera el ancla:
+
+1. **La política es del programa; la fecha resuelta es de la familia.** Al ingresar se resuelve la `anchor_date`
+   y se **persiste en el registro de la familia** junto con la política que la produjo. Cambiar la política nunca
+   reinterpreta retroactivamente a las familias ya inscritas ni mueve los indicadores de un piloto cerrado.
+2. **El cálculo de semana es una función pura** sobre `(anchor_date, hoy)`, en `domain/`, sin configuración ni AWS.
+3. **Contenido**: desbloqueado de la semana 1 a la semana actual (tope 8); las semanas futuras no se muestran.
+
+### Qué cambia respecto de D-001
+
+- **Desaparece el caso "fuera de ventana".** Con ancla al ingreso no existe familia que llegue tarde a su propio
+  programa: un bebé de 10 semanas ingresa igual en la semana 1. La pregunta abierta de D-001 queda cerrada.
+- **Vuelven a ser 8 semanas para todas las familias.** El indicador "semanas efectivamente acompañadas" pierde
+  la varianza que tenía con ancla al nacimiento; el dato de adherencia vuelve a ser cuántos de los 8 envíos
+  tuvieron respuesta, no cuántos se enviaron.
+- **La fecha de nacimiento se sigue guardando**, pero deja de gobernar el cronograma. Se usa para conocer la edad
+  del bebé, reportarla y segmentar el análisis del piloto.
+- **`00-entendimiento.md` §1 sigue sin cerrarse del todo**: el modelo operativo §4 dice "primeras 8 semanas de
+  **vida**". Con ancla al ingreso, una familia que entra con el bebé de 6 semanas termina el programa a las 14
+  semanas de vida. Es una desviación deliberada del documento y hay que declararla en el informe final.
+- **Agrava la contradicción 3** (el calendario de 12 semanas no cierra): ahora toda familia necesita 8 semanas
+  completas desde su ingreso, así que el reclutamiento tardío se sale del piloto con más margen, no menos.
+  Refuerza la necesidad de una fecha de corte de reclutamiento.
+
+### Abierto
+
+- **¿El contenido está escrito por semana de vida o por semana de programa?** El modelo operativo lo concibe
+  sobre "las primeras 8 semanas de vida", así que el contenido de la semana 1 probablemente asume un recién
+  nacido. Con ancla al ingreso, ese contenido le puede llegar a un bebé de 6 semanas. **Hay que confirmarlo con
+  Leer en Familia antes de que redacten el contenido real**; el placeholder de la fase 5 se marcará como
+  "semana de programa".
+- **Fecha de ingreso vs. escaneo del QR**: por ahora se toman como el mismo instante. Si más adelante se
+  necesita que el ingreso sea una fecha declarada distinta (p. ej. la del primer control), se agrega como campo
+  propio sin tocar el cálculo, que ya opera sobre `anchor_date`.
