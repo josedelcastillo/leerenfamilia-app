@@ -10,7 +10,8 @@
   "scripts": {
     "test": "node --test",
     "test:watch": "node --test --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "node --test --experimental-test-coverage"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.883.0",

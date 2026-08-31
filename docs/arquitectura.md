@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 1**. La infraestructura está definida y construida; la lógica de negocio llega en las fases 2 a 7.
+Estado: **fase 2**. Infraestructura definida y construida, capa de dominio completa y probada; la integración con WhatsApp, la PWA y los informes llegan en las fases 3 a 7.
 
 ## Forma general
 
@@ -164,6 +164,27 @@ adapters/   DynamoDB, SSM, proveedor de WhatsApp, Cognito
 `domain/` no importa de `adapters/` ni de `handlers/`. Es la capa que sostiene los indicadores del piloto y
 la única con exigencia de cobertura seria. Sus tests corren con `node --test`, sin red y sin credenciales.
 
+### Módulos de dominio (fase 2)
+
+| Módulo | Responsabilidad |
+|---|---|
+| `dates.ts` | Fecha calendario `YYYY-MM-DD` como tipo propio, días entre fechas, semana ISO |
+| `schedule.ts` | Política de ancla, semana del programa, semanas desbloqueadas |
+| `eligibility.ts` | Si una familia recibe envío hoy, a quiénes, y por qué no si no |
+| `service-window.ts` | Ventana de servicio de 24 h y elección entre mensaje libre y plantilla |
+| `opt-in.ts` | Consentimiento, palabras de baja, transiciones de opt-in/opt-out |
+| `msisdn.ts` | Normalización a E.164 de lo que las familias realmente escriben |
+| `feedback.ts` | Máquina de estados del feedback, respuestas append-only |
+| `errors.ts` | `DomainError` con códigos estables que los handlers mapean a HTTP |
+
+**La semana del programa se cuenta en días calendario, no en instantes.** Una familia que se inscribe a las
+23:00 en Lima se inscribió *ese* día, aunque en UTC ya sea el siguiente. Los handlers convierten "ahora" a
+fecha de Lima en el borde; de `domain/` para adentro no hay reloj ni zona horaria.
+
+Un test de arquitectura (`test/domain/purity.test.ts`) verifica en cada corrida que ningún módulo de dominio
+importe el SDK de AWS, importe de capas externas, lea el reloj o el entorno, o haga I/O. Si alguien rompe la
+regla, falla el build en vez de descubrirse en revisión.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -180,7 +201,7 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | Pasa |
+| `npm test` (backend, sin red ni credenciales) | 116 tests, todos pasan |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |
 | `sam deploy` | **No ejecutado** — no hay credenciales AWS en este entorno |

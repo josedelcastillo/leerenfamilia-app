@@ -15,7 +15,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 |---|---|---|
 | 0 | Entendimiento y vacíos detectados | ✅ |
 | 1 | Scaffolding, template SAM, DynamoDB, Cognito, arquitectura | ✅ |
-| 2 | Dominio y tests: cronograma, elegibilidad, ventana de servicio, opt-in, feedback | ⏳ |
+| 2 | Dominio y tests: cronograma, elegibilidad, ventana de servicio, opt-in, feedback | ✅ |
 | 3 | Proveedor de WhatsApp con mock, webhook con HMAC, idempotencia | ⏳ |
 | 4 | Scheduler semanal y envío end-to-end en modo mock | ⏳ |
 | 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ⏳ |

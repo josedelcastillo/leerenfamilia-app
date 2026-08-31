@@ -158,3 +158,30 @@ evita el gasto y el trámite. El costo para el gestor es tener que instalar una 
 Lo que **no** entra por venir en Plus: threat protection, autenticación adaptativa por riesgo y detección de
 credenciales comprometidas. Para 5 cuentas creadas a mano, con MFA obligatorio y sin auto-registro, la
 relación costo/beneficio no lo justifica. Queda anotado por si el alcance cambia.
+
+---
+
+## D-006 — Las palabras de baja se reconocen por coincidencia exacta, no por contenido
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+`BAJA`, `STOP` y `SALIR` dan de baja al cuidador cuando el mensaje **es** una de esas palabras, tras normalizar
+mayúsculas, tildes y puntuación. `¡BAJA!`, `baja.` y `Salír` cuentan. **`quiero darme de baja` no cuenta.**
+
+El razonamiento va en el sentido contrario al obvio. Buscar la palabra dentro del texto parece más generoso
+con la familia, pero significa que cualquier mensaje que contenga "baja" —"el bebé está bajando de peso", "se
+me bajó la leche"— corta las comunicaciones de una familia que nunca lo pidió, en silencio y sin que nadie lo
+revise. El falso positivo es el error caro: deja fuera del piloto a quien quería seguir.
+
+Lo que no coincide exactamente **no se pierde**: entra a la bandeja del gestor como `consulta` con estado
+`abierto`, y una persona la lee y la procesa. Es decir, el pedido de baja escrito en una frase se atiende
+igual, solo que con un humano en el medio en vez de una expresión regular.
+
+**Riesgo asumido y su mitigación.** La política de Meta exige honrar las bajas; el mecanismo automático por
+palabra exacta más la revisión humana de todo lo demás la cumple, siempre que la bandeja se lea con
+frecuencia. Eso obliga a un compromiso operativo que **el modelo operativo v1.0 no tiene**: un plazo máximo de
+respuesta. Está anotado como el hallazgo 11 de `00-entendimiento.md` y sigue abierto.
+
+**Sin palabra de reingreso.** Ningún documento define cómo vuelve una familia que se dio de baja. El dominio
+ya soporta el reingreso (`applyOptIn` limpia el `optOutAt`), pero no hay palabra clave que lo dispare: hoy
+tiene que hacerlo un gestor. Queda pendiente de definir con Leer en Familia.
