@@ -20,9 +20,12 @@ export const SK = {
   dedupe: 'DEDUPE',
   caregiver: (msisdn: string) => `CAREGIVER#${msisdn}`,
   consent: (isoTs: string) => `CONSENT#${isoTs}`,
+  // The client-generated id is part of the sort key on everything the offline queue writes.
+  // That is what makes a replayed flush overwrite instead of duplicating, with no read first,
+  // while the leading timestamp keeps the partition in chronological order.
   access: (isoTs: string, resourceId: string) => `ACCESS#${isoTs}#${resourceId}`,
-  log: (isoTs: string) => `LOG#${isoTs}`,
-  feedback: (isoTs: string) => `FEEDBACK#${isoTs}`,
+  log: (isoTs: string, clientId: string) => `LOG#${isoTs}#${clientId}`,
+  feedback: (isoTs: string, clientId: string) => `FEEDBACK#${isoTs}#${clientId}`,
   delivery: (isoWeek: string) => `DELIVERY#${isoWeek}`,
   content: (week: number) => `CONTENT#${String(week).padStart(2, '0')}`,
   status: (status: string) => `STATUS#${status}`,

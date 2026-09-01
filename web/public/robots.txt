@@ -1,0 +1,7 @@
+# Nacidos para Leer Perú.
+#
+# Nothing here should be indexed. Both surfaces are behind a credential and the pages exist to
+# serve families enrolled in the pilot, not to be found by search. Data about minors is processed
+# through this origin.
+User-agent: *
+Disallow: /

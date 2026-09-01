@@ -247,7 +247,7 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref Api
-            Path: /api/contenido/{proxy+}
+            Path: /api/contenido
             Method: GET
 
   TrackingLogGroup:
@@ -281,7 +281,7 @@ Resources:
           Type: HttpApi
           Properties:
             ApiId: !Ref Api
-            Path: /api/seguimiento/{proxy+}
+            Path: /api/seguimiento
             Method: POST
 
   FeedbackLogGroup:

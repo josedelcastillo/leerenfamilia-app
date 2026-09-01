@@ -281,3 +281,68 @@ programa, las ocho semanas placeholder y tres familias en semanas distintas del 
 la situación que crea D-003—. Los identificadores llevan prefijo `demo-` y los teléfonos están en el rango
 `+5199999xxxx`, que no es un prefijo real de celular peruano: los datos de prueba nunca deben poder
 confundirse con datos del piloto.
+
+---
+
+## D-009 — Lighthouse ya no tiene categoría PWA; se verifica la instalabilidad directamente
+
+**Fecha:** 2026-08-31 · **Estado:** vigente · **Corrige un criterio de aceptación del encargo**
+
+El encargo pide "Lighthouse PWA e *Installable* en verde antes de dar la fase por cerrada". **Ese criterio ya
+no se puede cumplir literalmente: Lighthouse eliminó la categoría PWA en la versión 12 (2024).** Con Lighthouse
+13.4.1, las categorías son `performance`, `accessibility`, `best-practices`, `seo` y `agentic-browsing`. No
+hay puntaje PWA que poner en verde.
+
+En su reemplazo, `web/scripts/check-installable.mjs` verifica con Chromium las condiciones que el navegador
+realmente usa para ofrecer la instalación, y falla con código distinto de cero si alguna no se cumple:
+manifest servido y válido, `name`, `short_name`, `start_url`, `display: standalone`, íconos de 192 y 512, al
+menos un ícono `maskable`, cada ícono efectivamente servido, y un service worker registrado.
+
+El mismo script apaga la red y comprueba lo que en realidad importa: que la app cargue, se renderice y
+resuelva una ruta del cliente **sin conexión**. Esa es la garantía que el puntaje de Lighthouse nunca dio.
+
+### Puntajes de Lighthouse 13.4.1 sobre el build de producción
+
+| Categoría | Puntaje |
+|---|---|
+| Rendimiento | 100 |
+| Accesibilidad | 100 |
+| Buenas prácticas | 100 |
+| SEO | **63, a propósito** |
+
+**El 63 de SEO es una decisión, no una falla.** El único audit que falla es `is-crawlable`: la página está
+bloqueada para indexación por un `robots.txt` con `Disallow: /`. Es lo correcto para esta aplicación —ambas
+superficies están detrás de una credencial y por este origen se tratan datos de menores—, así que no se va a
+"arreglar". Subir ese puntaje significaría permitir que se indexe la superficie de las familias.
+
+---
+
+## D-010 — La cola offline separa la política del almacenamiento
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+`sync-queue.ts` tiene la política y no sabe qué es IndexedDB; `idb-storage.ts` es la implementación. Así la
+parte que decide qué se conserva y qué se descarta se prueba con `node --test`, sin navegador. Es el mismo
+corte que en el backend entre `domain/` y `adapters/`.
+
+Tres reglas, y las tres importan:
+
+| Respuesta del servidor | Qué pasa | Por qué |
+|---|---|---|
+| `ok` | Sale de la cola | Llegó |
+| `rechazado` | **Sale de la cola** y se le avisa al cuidador | Nunca va a ser aceptado; reintentarlo bloquearía la cola para siempre |
+| `error`, o ítem no mencionado | **Se queda** y sube el contador de intentos | Es culpa nuestra; más tarde puede funcionar |
+
+Si falla la petición entera —sin señal, servidor caído— **no se pierde nada**: todo queda en cola. Y un ítem
+que falla 10 veces se descarta y se reporta, para que un registro envenenado no se reintente en cada apertura
+de la app durante todo el piloto.
+
+**El disparador principal es `visibilitychange`, no `online`.** Una madre escribe una entrada, bloquea el
+celular, y abre la app horas después en un sitio con señal. El evento `online` puede no dispararse nunca en
+el medio, porque el navegador no estaba corriendo cuando volvió la conexión.
+
+### Quién registró la entrada lo decide el token, no el dispositivo
+
+`loggedBy` se resuelve en el backend a partir del cuidador que firma el token, ignorando lo que venga en el
+cuerpo. Si lo decidiera el cliente, un dispositivo podría atribuir todas las entradas al cuidador secundario y
+el dato de "quién lee en esta casa" —uno de los pocos que el piloto puede medir— quedaría inservible.

@@ -1,0 +1,198 @@
+/*
+ * Mobile-first, high contrast, large type, large tap targets.
+ *
+ * The reader is a caregiver with a newborn, often at night, often one-handed, often on a cheap
+ * phone in bright sunlight. Every choice here follows from that: 18px base text, 3rem minimum
+ * touch targets, and contrast well past WCAG AA rather than exactly at it.
+ */
+:root {
+  --ink: #0d2b33;
+  --ink-soft: #40606a;
+  --paper: #fbfaf7;
+  --surface: #ffffff;
+  --brand: #0d4754;
+  --brand-ink: #ffffff;
+  --accent: #a8451f;
+  --line: #d5dfe2;
+  --ok: #1c6b3f;
+  --warn: #8a5a00;
+
+  --radius: 0.75rem;
+  --touch: 3rem;
+  --gap: 1rem;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: var(--paper); }
+
+.app {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 var(--gap) 6rem;
+}
+
+h1 { font-size: 1.5rem; line-height: 1.25; margin: 1rem 0 0.25rem; }
+h2 { font-size: 1.2rem; line-height: 1.3; margin: 1.5rem 0 0.5rem; }
+h3 { font-size: 1rem; margin: 0 0 0.25rem; }
+p { margin: 0.5rem 0; }
+
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.85rem; }
+
+/* --- header ------------------------------------------------------------- */
+.topbar {
+  background: var(--brand);
+  color: var(--brand-ink);
+  padding: 0.75rem var(--gap);
+  margin: 0 calc(-1 * var(--gap));
+}
+.topbar h1 { margin: 0; font-size: 1.15rem; }
+.topbar .muted { color: #bcd9e0; }
+
+/* --- status banners ----------------------------------------------------- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  border: 2px solid transparent;
+}
+.banner--offline { background: #fff4d6; border-color: #e0b64a; color: var(--warn); }
+.banner--pending { background: #e6f0f3; border-color: #8fb6c1; color: var(--brand); }
+.banner--error { background: #fbe7e1; border-color: #d09480; color: var(--accent); }
+
+/* --- cards -------------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap);
+  margin: 0.75rem 0;
+}
+.card--muted { background: #f2f5f6; }
+
+.placeholder-note {
+  background: #fff4d6;
+  border-left: 4px solid #e0b64a;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--warn);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* --- forms -------------------------------------------------------------- */
+label { display: block; font-weight: 600; margin: 0.9rem 0 0.3rem; }
+
+input, select, textarea {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+textarea { min-height: 6rem; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible, a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Chip group: bigger and easier to hit one-handed than a native select. */
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  min-height: var(--touch);
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 2rem;
+  background: var(--surface);
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+.btn {
+  min-height: var(--touch);
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  border: 2px solid var(--brand);
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--brand-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn--secondary { background: var(--surface); color: var(--brand); }
+
+/* --- lists -------------------------------------------------------------- */
+.entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
+.entry:last-child { border-bottom: none; }
+.entry__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+
+.tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  background: #e6f0f3;
+  color: var(--brand);
+}
+.tag--pending { background: #fff4d6; color: var(--warn); }
+.tag--ok { background: #e2f0e8; color: var(--ok); }
+
+/* --- bottom navigation -------------------------------------------------- */
+.tabs {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabs button {
+  flex: 1;
+  min-height: 3.5rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-top: 3px solid transparent;
+}
+.tabs button[aria-current='page'] {
+  color: var(--brand);
+  font-weight: 700;
+  border-top-color: var(--brand);
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}

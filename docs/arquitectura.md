@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 4**. Infraestructura, dominio, integración con WhatsApp y envío semanal construidos y probados, con el ciclo completo verificado en modo mock; la PWA y los informes llegan en las fases 5 a 7.
+Estado: **fase 5**. Infraestructura, dominio, WhatsApp, envío semanal y PWA de la familia construidos y probados; la vista del gestor y los informes llegan en las fases 6 y 7.
 
 ## Forma general
 
@@ -250,6 +250,37 @@ El scheduler corre en `America/Lima` y la fecha calendario se resuelve con `Intl
 Perú no tiene horario de verano, pero la conversión explícita mantiene esto correcto si la plataforma se usa
 en otro lado — y es la frontera de la que depende todo el cálculo de semanas.
 
+## PWA de la familia (fase 5)
+
+Cuatro Lambdas sirven la superficie: `fn-register` (QR, público), `fn-content`, `fn-tracking` y
+`fn-feedback` (token de familia). Las tres últimas comparten `openSession()`, que verifica el token y **carga
+el contexto de la familia desde la base**: del token solo se confía la identidad, nunca los datos.
+
+### La cola offline
+
+La bitácora y el feedback son escrituras, y estas familias van a estar sin señal buena parte del tiempo. Se
+escriben primero en **IndexedDB** —en el celular, no en AWS— y se envían cuando hay conexión. Ver
+`decisiones.md` D-010 para las reglas de la cola y por qué el disparador principal es `visibilitychange`.
+
+El endpoint `/api/seguimiento` acepta un lote y **responde por ítem**, para que el dispositivo saque de la
+cola exactamente lo que entró. Un registro malformado no puede dejar varada una semana de bitácora.
+
+La idempotencia es estructural: el id que genera el dispositivo forma parte de la clave de ordenamiento
+(`LOG#<ts>#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer antes de escribir.
+
+### Nota sensible
+
+El texto libre de las notas describe la rutina doméstica de una casa con un recién nacido. Se guarda siempre,
+pero el gestor solo lo ve si la familia lo autorizó en el consentimiento — `freeTextNotesAuthorized` en el
+registro de la familia, marcado en el formulario de inscripción y filtrado en lectura, nunca descartado en
+escritura.
+
+### Instalabilidad y offline
+
+Verificados con Chromium real, no con un puntaje. Ver `decisiones.md` D-009: Lighthouse eliminó su categoría
+PWA en la v12, así que el criterio de aceptación original ya no existe y se reemplazó por comprobaciones
+directas.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -266,7 +297,9 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 238 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 293 tests, todos pasan |
+| `npm test` (web) | 15 tests, todos pasan |
+| `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |
 | `sam deploy` | **No ejecutado** — no hay credenciales AWS en este entorno |

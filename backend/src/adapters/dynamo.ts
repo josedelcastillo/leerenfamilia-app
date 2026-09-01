@@ -139,7 +139,7 @@ export class Store implements MockDeliverySink {
         TableName: this.#table,
         Item: {
           PK: KEY.family(familyId),
-          SK: SK.feedback(feedback.createdAt),
+          SK: SK.feedback(feedback.createdAt, feedback.id),
           GSI1PK: GSI1.feedbackByStatus(programId, feedback.status),
           GSI1SK: GSI1.feedbackSort(feedback.createdAt, familyId),
           entity: 'feedback',

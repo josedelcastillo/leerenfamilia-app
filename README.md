@@ -18,7 +18,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 | 2 | Dominio y tests: cronograma, elegibilidad, ventana de servicio, opt-in, feedback | ✅ |
 | 3 | Proveedor de WhatsApp con mock, webhook con HMAC, idempotencia | ✅ |
 | 4 | Scheduler semanal y envío end-to-end en modo mock | ✅ |
-| 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ⏳ |
+| 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ✅ |
 | 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ⏳ |
 | 7 | Exportación CSV de métricas del piloto | ⏳ |
 | 8 | `costos.md`, `runbook.md`, `tratamiento-datos.md` | ⏳ |
@@ -58,7 +58,11 @@ commits.
 cd backend && npm install && npm test && npm run typecheck
 
 # PWA
-cd web && npm install && npm run build     # o npm run dev
+cd web && npm install && npm test && npm run build     # o npm run dev
+
+# Instalabilidad y funcionamiento offline, contra un build servido
+cd web && npx vite preview --port 4173 &
+CHROMIUM_PATH=/ruta/a/chromium node scripts/check-installable.mjs http://localhost:4173/app
 
 # Infraestructura
 sam validate --template infra/template.yaml --lint

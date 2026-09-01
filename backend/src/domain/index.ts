@@ -2,6 +2,7 @@ export * from './dates.ts';
 export * from './eligibility.ts';
 export * from './errors.ts';
 export * from './feedback.ts';
+export * from './log-entry.ts';
 export * from './msisdn.ts';
 export * from './opt-in.ts';
 export * from './schedule.ts';

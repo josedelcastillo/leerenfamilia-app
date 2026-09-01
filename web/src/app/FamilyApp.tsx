@@ -1,9 +1,72 @@
-// Family surface. Content, reading log, feedback and the offline sync queue land in phase 5.
+import { useState } from 'react';
+import '../shared/styles.css';
+import { captureTokenFromUrl } from '../shared/token.ts';
+import { useSync } from '../shared/useSync.ts';
+import { Estado } from './components/Estado.tsx';
+import { Bitacora } from './Bitacora.tsx';
+import { Contenido } from './Contenido.tsx';
+import { Mensajes } from './Mensajes.tsx';
+import { Registro } from './Registro.tsx';
+
+type Tab = 'semana' | 'bitacora' | 'mensajes';
+
+const TABS: ReadonlyArray<{ id: Tab; label: string; icon: string }> = [
+  { id: 'semana', label: 'Esta semana', icon: '📖' },
+  { id: 'bitacora', label: 'Bitácora', icon: '✏️' },
+  { id: 'mensajes', label: 'Mensajes', icon: '💬' },
+];
+
 export default function FamilyApp() {
+  // Runs once on load: pulls the token out of the WhatsApp deep link and clears it from the URL.
+  const [token, setTokenState] = useState<string | null>(() => captureTokenFromUrl());
+  const [tab, setTab] = useState<Tab>('semana');
+  const sync = useSync();
+
+  if (token === null) {
+    return (
+      <main className="app">
+        <Registro onRegistered={() => setTokenState(captureTokenFromUrl())} />
+      </main>
+    );
+  }
+
   return (
-    <main lang="es-PE">
-      <h1>Nacidos para Leer Perú</h1>
-      <p>Superficie de la familia. Contenido pendiente de la fase 5.</p>
-    </main>
+    <>
+      <header className="topbar">
+        <h1>Nacidos para Leer Perú</h1>
+        <p className="muted small" style={{ margin: 0 }}>
+          Leer en Familia
+        </p>
+      </header>
+
+      <main className="app">
+        <Estado
+          online={sync.online}
+          pending={sync.pending}
+          rejected={sync.rejected}
+          onDismiss={sync.dismissRejected}
+        />
+
+        {tab === 'semana' && <Contenido enqueue={sync.enqueue} />}
+        {tab === 'bitacora' && <Bitacora enqueue={sync.enqueue} pending={sync.pending} />}
+        {tab === 'mensajes' && <Mensajes enqueue={sync.enqueue} />}
+      </main>
+
+      <nav className="tabs" aria-label="Secciones">
+        {TABS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={tab === item.id ? 'page' : undefined}
+            onClick={() => setTab(item.id)}
+          >
+            <span aria-hidden="true" style={{ display: 'block', fontSize: '1.3rem' }}>
+              {item.icon}
+            </span>
+            {item.label}
+          </button>
+        ))}
+      </nav>
+    </>
   );
 }

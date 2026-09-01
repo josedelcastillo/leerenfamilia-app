@@ -7,7 +7,7 @@ describe('key layout', () => {
     // A family detail view is then one Query, and erasure is one Query plus one BatchWrite.
     const family = KEY.family('f1');
     assert.equal(family, 'FAMILY#f1');
-    for (const sk of [SK.meta, SK.baby, SK.caregiver('+51987654321'), SK.log('2026-09-15T10:00:00.000Z')]) {
+    for (const sk of [SK.meta, SK.baby, SK.caregiver('+51987654321'), SK.log('2026-09-15T10:00:00.000Z', 'c1')]) {
       assert.ok(sk.length > 0);
     }
   });
@@ -15,6 +15,23 @@ describe('key layout', () => {
   test('content weeks are zero-padded so they sort correctly', () => {
     const sorted = [10, 2, 1, 8].map(SK.content).sort();
     assert.deepEqual(sorted, ['CONTENT#01', 'CONTENT#02', 'CONTENT#08', 'CONTENT#10']);
+  });
+
+  test('the client id is part of the sort key of everything the offline queue writes', () => {
+    // That is what makes a replayed flush overwrite instead of duplicating, with no read first.
+    const first = SK.log('2026-09-15T10:00:00.000Z', 'uuid-a');
+    const replay = SK.log('2026-09-15T10:00:00.000Z', 'uuid-a');
+    const different = SK.log('2026-09-15T10:00:00.000Z', 'uuid-b');
+    assert.equal(first, replay, 'un reintento escribe la misma clave');
+    assert.notEqual(first, different, 'dos entradas distintas no colisionan');
+  });
+
+  test('log sort keys still order chronologically despite the id suffix', () => {
+    const keys = [
+      SK.log('2026-09-15T10:00:00.000Z', 'zzz'),
+      SK.log('2026-09-14T10:00:00.000Z', 'aaa'),
+    ].sort();
+    assert.match(keys[0]!, /2026-09-14/);
   });
 
   test('feedback sort keys order oldest first within a status', () => {

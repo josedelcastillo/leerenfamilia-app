@@ -7,8 +7,8 @@ import { createRoot } from 'react-dom/client';
  *
  * A router is deliberately absent until phase 5, when the family surface gains real routes.
  */
-const FamilySurface = lazy(() => import('./app/FamilyApp'));
-const ManagerSurface = lazy(() => import('./gestor/ManagerApp'));
+const FamilySurface = lazy(() => import('./app/FamilyApp.tsx'));
+const ManagerSurface = lazy(() => import('./gestor/ManagerApp.tsx'));
 
 const isManagerSurface = window.location.pathname.startsWith('/gestor');
 const Surface = isManagerSurface ? ManagerSurface : FamilySurface;

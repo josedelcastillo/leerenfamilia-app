@@ -1,9 +1,43 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { notImplemented } from '../../shared/http.ts';
+import { json } from '../../shared/http.ts';
+import { familyStore, openSession, parseBody, toErrorResponse } from '../family-runtime.ts';
+import { applySync, type SyncItem } from './logic.ts';
 
-// Phase 5: resource access events and reading-log entries, idempotent by client UUID.
+/** One flush of the device's queue may not be unbounded; the client batches beyond this. */
+const MAX_ITEMS = 100;
+
 export async function handler(
-  _event: APIGatewayProxyEventV2,
+  event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  return notImplemented('fn-tracking', 5);
+  const opened = await openSession(event);
+  if ('response' in opened) {
+    return opened.response;
+  }
+
+  try {
+    const { context, principal, today, now } = opened.session;
+    const body = parseBody(event);
+    const items = Array.isArray(body['items']) ? (body['items'] as SyncItem[]) : [];
+
+    if (items.length === 0) {
+      return json(400, { error: 'lote_vacio' });
+    }
+    if (items.length > MAX_ITEMS) {
+      return json(413, { error: 'lote_demasiado_grande', maxItems: MAX_ITEMS });
+    }
+
+    const results = await applySync(
+      familyStore,
+      context,
+      principal.msisdn,
+      items,
+      today,
+      now,
+    );
+    // 200 even when some items failed: the per-item results are the answer, and the device uses
+    // them to dequeue exactly what landed.
+    return json(200, { results });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }

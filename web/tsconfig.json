@@ -5,6 +5,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
+    // Imports carry their .ts/.tsx extension, matching the backend and letting `node --test`
+    // run the logic modules directly. Vite resolves them without complaint.
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,

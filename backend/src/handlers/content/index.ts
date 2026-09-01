@@ -1,9 +1,23 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
-import { notImplemented } from '../../shared/http.ts';
+import { json } from '../../shared/http.ts';
+import { familyStore, openSession, toErrorResponse } from '../family-runtime.ts';
+import { getContent } from './logic.ts';
 
-// Phase 5: weekly content for the family, weeks 1..current only.
 export async function handler(
-  _event: APIGatewayProxyEventV2,
+  event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  return notImplemented('fn-content', 5);
+  const opened = await openSession(event);
+  if ('response' in opened) {
+    return opened.response;
+  }
+  try {
+    const { context, today } = opened.session;
+    return json(200, await getContent(familyStore, context, today), {
+      // Content is identical for every family in the same programme week, and the PWA caches it in
+      // the service worker anyway; a short private cache saves a round trip on a bad connection.
+      'cache-control': 'private, max-age=300',
+    });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }
