@@ -262,8 +262,13 @@ La bitácora y el feedback son escrituras, y estas familias van a estar sin señ
 escriben primero en **IndexedDB** —en el celular, no en AWS— y se envían cuando hay conexión. Ver
 `decisiones.md` D-010 para las reglas de la cola y por qué el disparador principal es `visibilitychange`.
 
-El endpoint `/api/seguimiento` acepta un lote y **responde por ítem**, para que el dispositivo saque de la
-cola exactamente lo que entró. Un registro malformado no puede dejar varada una semana de bitácora.
+El endpoint `/api/seguimiento` acepta un lote por `POST` y **responde por ítem**, para que el dispositivo
+saque de la cola exactamente lo que entró. Un registro malformado no puede dejar varada una semana de
+bitácora. Por `GET` devuelve el historial propio de la familia.
+
+El historial que ve la familia mezcla lo del servidor con lo que sigue en la cola, unido por `clientId`
+(D-015): una entrada escrita sin señal se ve de inmediato marcada como pendiente, pasa a guardada sola
+cuando sincroniza, y nunca aparece duplicada.
 
 La idempotencia es estructural: el id que genera el dispositivo forma parte de la clave de ordenamiento
 (`LOG#<ts>#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer antes de escribir.
@@ -351,8 +356,8 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 372 tests, todos pasan |
-| `npm test` (web) | 15 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 376 tests, todos pasan |
+| `npm test` (web) | 26 tests, todos pasan |
 | `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |

@@ -472,3 +472,65 @@ si se omitió: una celda vacía sola no distingue "no escribió nada" de "no aut
 
 **Exportar es una de las tres acciones auditadas**, junto con abrir el detalle de una familia y responder
 un feedback. Es la que saca datos de menores de la plataforma y los pone en la laptop de alguien.
+
+---
+
+## D-015 — El historial se arma con lo del servidor más lo que sigue en la cola
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige un defecto reportado en uso**
+
+Reportado tras el primer despliegue: en la bitácora, los registros solo se veían mientras la pantalla
+seguía abierta; al cambiar de pestaña y volver, desaparecían.
+
+**La causa:** la pantalla guardaba lo recién escrito en estado local del componente y nunca leía el
+historial del servidor. Al desmontarse, se perdía. El dato **sí estaba** guardado —la cola lo
+sincronizaba bien— pero la familia no tenía forma de verlo, que para ella es lo mismo que no estar.
+
+Faltaba además el endpoint: la familia podía escribir su bitácora pero no leerla. Ahora
+`GET /api/seguimiento` devuelve sus propias entradas.
+
+**Las notas propias vuelven completas.** El flag de consentimiento gobierna lo que lee un *gestor*,
+nunca lo que la familia ve de lo que ella misma escribió.
+
+### El historial se arma mezclando dos fuentes
+
+`mergeHistorial` y `mergeThread` combinan lo que el servidor tiene con lo que sigue en IndexedDB, usando
+el `clientId` como clave de unión. Así:
+
+- Una entrada escrita sin señal aparece de inmediato, marcada **Pendiente**, y sigue apareciendo después
+  de salir de la pantalla.
+- Cuando sincroniza, pasa a **Guardado** sola.
+- En la ventana en que el envío ya llegó pero la cola todavía no descartó el ítem, **no se duplica**: la
+  copia del servidor gana.
+- Sin conexión, el historial del servidor no carga y la vista se sostiene sola con lo que hay en el
+  dispositivo, avisándolo.
+
+Las dos funciones viven en archivos `.ts` separados de los `.tsx` porque el runner de Node no procesa
+JSX, y así se prueban sin navegador. Es el mismo corte que en el backend entre lógica y adaptadores.
+
+---
+
+## D-016 — "Ya lo hicimos" registra en la bitácora; el acceso se registra al abrir la semana
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige una decisión de la fase 5**
+
+Antes, el botón "Ya lo hicimos" escribía un evento de **acceso a recurso** y nada más: ni duración, ni
+fecha, ni nota. La familia declaraba haber hecho la actividad y esa declaración no entraba a la bitácora,
+que es la fuente primaria de los indicadores. Se perdía el dato que más importa.
+
+Ahora el botón abre el **mismo formulario** que la bitácora —tipo de actividad ya seleccionado según la
+actividad, duración, fecha con hoy por defecto, y nota— y guarda una entrada de bitácora con
+`resourceId` apuntando a la actividad. Ese campo existía desde la fase 5 y hasta ahora nadie lo llenaba:
+es lo que permite saber **qué recursos se usan de verdad**, no solo cuántos minutos se leyó.
+
+El formulario es un componente compartido, así que una actividad registrada desde el contenido y una
+escrita a mano son exactamente el mismo registro. No hay dos calidades de dato.
+
+### El acceso recupera su significado
+
+El evento `ACCESS#` vuelve a significar lo que el modelo de datos dice —"quién abrió qué y cuándo"— y se
+registra al **desplegar una semana**, que es cuando la familia efectivamente mira el contenido.
+
+El `clientId` es fijo por semana y por día (`acceso-<semana>-<fecha>`), y el timestamp es el inicio del
+día, así que abrir la semana 3 diez veces una tarde deja **un** registro, no diez. Acota el volumen y
+mantiene el dato interpretable: "abrió la semana 3 el 15 de septiembre".

@@ -78,8 +78,19 @@ export interface Feedback {
   replies: FeedbackReply[];
 }
 
+export interface LogEntry {
+  clientId: string;
+  date: string;
+  kind: string;
+  minutes: number;
+  resourceId: string | null;
+  note: string | null;
+  loggedBy: string;
+}
+
 export const api = {
   getContent: () => request<ContentResponse>('/contenido'),
+  listLog: () => request<{ entries: LogEntry[] }>('/seguimiento'),
   listFeedback: () => request<{ feedback: Feedback[] }>('/feedback'),
   register: (payload: unknown) =>
     request<{ familyId: string; token: string; anchorDate: string }>('/registro', {

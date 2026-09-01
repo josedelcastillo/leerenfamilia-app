@@ -48,8 +48,20 @@ export default function FamilyApp() {
         />
 
         {tab === 'semana' && <Contenido enqueue={sync.enqueue} />}
-        {tab === 'bitacora' && <Bitacora enqueue={sync.enqueue} pending={sync.pending} />}
-        {tab === 'mensajes' && <Mensajes enqueue={sync.enqueue} />}
+        {tab === 'bitacora' && (
+          <Bitacora
+            enqueue={sync.enqueue}
+            pendingItems={sync.pendingItems}
+            syncedAt={sync.syncedAt}
+          />
+        )}
+        {tab === 'mensajes' && (
+          <Mensajes
+            enqueue={sync.enqueue}
+            pendingItems={sync.pendingItems}
+            syncedAt={sync.syncedAt}
+          />
+        )}
       </main>
 
       <nav className="tabs" aria-label="Secciones">

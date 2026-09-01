@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { api, type Feedback } from '../shared/api.ts';
-import type { QueuedKind } from '../shared/sync-queue.ts';
+import type { QueuedItem, QueuedKind } from '../shared/sync-queue.ts';
+import { mergeThread } from './mensajes-thread.ts';
 
 const TYPES = [
   { value: 'consulta', label: 'Tengo una duda' },
@@ -15,21 +16,43 @@ const STATUS_LABEL: Record<string, string> = {
   cerrado: 'Cerrado',
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  consulta: 'Duda', comentario: 'Comentario', pedido: 'Pedido', problema: 'Problema',
+};
+
 export function Mensajes({
   enqueue,
+  pendingItems,
+  syncedAt,
 }: {
   enqueue: (kind: QueuedKind, payload: Record<string, unknown>) => Promise<string>;
+  pendingItems: readonly QueuedItem[];
+  syncedAt: number;
 }) {
-  const [thread, setThread] = useState<Feedback[]>([]);
+  const [stored, setStored] = useState<readonly Feedback[]>([]);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [type, setType] = useState<string>('consulta');
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [justSent, setJustSent] = useState(false);
 
-  useEffect(() => {
-    // Offline this simply fails and the local thread stays empty; the queue still accepts writes.
-    api.listFeedback().then((response) => setThread(response.feedback)).catch(() => undefined);
+  const load = useCallback(() => {
+    api
+      .listFeedback()
+      .then((response) => {
+        setStored(response.feedback);
+        setLoadFailed(false);
+      })
+      // Offline this fails; the queued messages carry the thread on their own.
+      .catch(() => setLoadFailed(true));
   }, []);
+
+  useEffect(load, [load]);
+  // Reload once a flush has landed, so a message stops showing as pending and any reply appears.
+  useEffect(() => {
+    if (syncedAt > 0) load();
+  }, [syncedAt, load]);
+
+  const thread = mergeThread(stored, pendingItems);
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -43,7 +66,6 @@ export function Mensajes({
         createdAt: new Date().toISOString(),
       });
       setText('');
-      setJustSent(true);
     } finally {
       setBusy(false);
     }
@@ -85,35 +107,46 @@ export function Mensajes({
         <button type="submit" className="btn" disabled={busy || text.trim() === ''}>
           Enviar
         </button>
-        {justSent && (
-          <p className="banner banner--pending small" role="status">
-            Recibido. Si estás sin señal se enviará solo cuando vuelva.
-          </p>
-        )}
       </form>
 
-      {thread.length > 0 && (
-        <>
-          <h2>Tus mensajes anteriores</h2>
-          {thread.map((item) => (
-            <article key={item.id} className="card">
-              <div className="entry__head">
-                <span className="tag">{item.channel === 'whatsapp' ? 'WhatsApp' : 'App'}</span>
-                <span className={item.status === 'abierto' ? 'tag tag--pending' : 'tag tag--ok'}>
-                  {STATUS_LABEL[item.status] ?? item.status}
-                </span>
-              </div>
-              <p>{item.text}</p>
-              {item.replies.map((reply, index) => (
-                <div key={`${item.id}-${index}`} className="entry">
-                  <strong className="small">Leer en Familia</strong>
-                  <p>{reply.text}</p>
-                </div>
-              ))}
-            </article>
-          ))}
-        </>
+      <h2>Tus mensajes</h2>
+      {loadFailed && (
+        <p className="banner banner--offline small">
+          No pudimos cargar tus mensajes anteriores. Abajo ves los que están guardados en este celular.
+        </p>
       )}
+
+      {thread.length === 0 && (
+        <p className="card card--muted">
+          Todavía no nos escribiste. Lo que mandes aparece acá con su respuesta.
+        </p>
+      )}
+
+      {thread.map((item) => (
+        <article key={item.id} className="card">
+          <div className="entry__head">
+            <span>
+              <span className="tag">{TYPE_LABEL[item.type] ?? item.type}</span>{' '}
+              {item.channel === 'whatsapp' && <span className="tag">WhatsApp</span>}
+            </span>
+            {item.pending
+              ? <span className="tag tag--pending">Pendiente de enviar</span>
+              : <span className={item.status === 'abierto' ? 'tag tag--pending' : 'tag tag--ok'}>
+                  {STATUS_LABEL[item.status] ?? item.status}
+                </span>}
+          </div>
+          <p className="small muted">{new Date(item.createdAt).toLocaleString('es-PE')}</p>
+          <p>{item.text}</p>
+
+          {item.replies.map((reply, index) => (
+            <div key={`${item.id}-${index}`} className="thread-reply">
+              <strong className="small">Leer en Familia</strong>
+              <p className="small muted">{new Date(reply.at).toLocaleString('es-PE')}</p>
+              <p>{reply.text}</p>
+            </div>
+          ))}
+        </article>
+      ))}
     </section>
   );
 }

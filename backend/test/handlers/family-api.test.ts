@@ -7,7 +7,7 @@ import type { LogEntry } from '../../src/domain/log-entry.ts';
 import { PLACEHOLDER_WEEKS, type WeekContent } from '../../src/content/weeks.ts';
 import type { FamilyContext, FamilyStore, ResourceAccess } from '../../src/handlers/family-ports.ts';
 import { getContent } from '../../src/handlers/content/logic.ts';
-import { applySync, type SyncItem } from '../../src/handlers/tracking/logic.ts';
+import { applySync, listOwnLog, type SyncItem } from '../../src/handlers/tracking/logic.ts';
 import { listOwnFeedback, submitFeedback, MAX_FEEDBACK_LENGTH } from '../../src/handlers/feedback/logic.ts';
 import {
   enroll,
@@ -207,6 +207,41 @@ describe('sincronización de la cola', () => {
     ], TODAY, NOW);
     assert.equal(results[0]?.status, 'rechazado');
     assert.equal(results[1]?.status, 'rechazado');
+  });
+});
+
+describe('historial propio de la bitácora', () => {
+  test('devuelve las entradas de la familia, de la más nueva a la más vieja', async () => {
+    // Without this the log only existed while the screen stayed mounted.
+    await applySync(store, store.context, MOTHER, [
+      { clientId: 'a', kind: 'bitacora', date: '2026-09-17', kind_actividad: 'lectura', minutes: 10 } as SyncItem,
+      { clientId: 'b', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'cancion', minutes: 5 } as SyncItem,
+    ], TODAY, NOW);
+
+    const { entries } = await listOwnLog(store, store.context);
+    assert.deepEqual(entries.map((e) => e.date), ['2026-09-19', '2026-09-17']);
+  });
+
+  test('la familia sí ve sus propias notas, aunque no las haya autorizado al equipo', async () => {
+    // The consent flag governs what a manager reads, never what the family sees of its own writing.
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    await applySync(store, store.context, MOTHER, [
+      { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, note: 'le gustó' } as SyncItem,
+    ], TODAY, NOW);
+
+    const { entries } = await listOwnLog(store, store.context);
+    assert.equal(entries[0]?.note, 'le gustó');
+  });
+
+  test('una familia sin registros recibe una lista vacía, no un error', async () => {
+    assert.deepEqual((await listOwnLog(store, store.context)).entries, []);
+  });
+
+  test('conserva el recurso asociado, para poder mostrar de qué actividad vino', async () => {
+    await applySync(store, store.context, MOTHER, [
+      { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, resourceId: 's03-lectura' } as SyncItem,
+    ], TODAY, NOW);
+    assert.equal((await listOwnLog(store, store.context)).entries[0]?.resourceId, 's03-lectura');
   });
 });
 

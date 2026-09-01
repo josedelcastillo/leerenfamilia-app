@@ -171,6 +171,8 @@ Meta y decidiendo a mano.
 | "global is not defined" en la vista del gestor | El `define` de Vite se perdió. Ver D-012 |
 | El CSV abre con acentos rotos | Se perdió el BOM (D-014) |
 | La app no carga sin conexión | El service worker no se registró. Verificar con `web/scripts/check-installable.mjs` |
+| La familia no ve su historial de bitácora | Falta la ruta `GET /api/seguimiento`. Requiere `sam deploy`, no solo publicar la PWA |
+| Un cambio de la PWA no aparece | Falta invalidar CloudFront para `/index.html` y `/sw.js` |
 
 Todos los log groups están bajo `/nplp/<stack>/fn-*` con retención de 14 días.
 

@@ -1,6 +1,6 @@
 import type { IsoDate } from '../../domain/dates.ts';
 import { DomainError } from '../../domain/errors.ts';
-import { parseLogEntry, type LoggedBy } from '../../domain/log-entry.ts';
+import { parseLogEntry, type LogEntry, type LoggedBy } from '../../domain/log-entry.ts';
 import type { FamilyContext, FamilyStore, ResourceAccess } from '../family-ports.ts';
 
 export type SyncItem =
@@ -80,4 +80,24 @@ export async function applySync(
   }
 
   return results;
+}
+
+export interface OwnLogResponse {
+  readonly entries: readonly LogEntry[];
+}
+
+/**
+ * The family's own log, newest first.
+ *
+ * The free-text notes come back in full. The consent flag governs what a *manager* may read, never
+ * what the family sees of what it wrote itself.
+ */
+export async function listOwnLog(
+  store: FamilyStore,
+  context: FamilyContext,
+): Promise<OwnLogResponse> {
+  const entries = await store.listLogEntries(context.familyId);
+  return {
+    entries: [...entries].sort((a, b) => b.date.localeCompare(a.date)),
+  };
 }
