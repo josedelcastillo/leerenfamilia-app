@@ -20,7 +20,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 | 4 | Scheduler semanal y envío end-to-end en modo mock | ✅ |
 | 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ✅ |
 | 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ✅ |
-| 7 | Exportación CSV de métricas del piloto | ⏳ |
+| 7 | Exportación CSV de métricas del piloto | ✅ |
 | 8 | `costos.md`, `runbook.md`, `tratamiento-datos.md` | ⏳ |
 
 ## Estructura
@@ -44,6 +44,10 @@ web/src/
 Empiece por [`docs/00-entendimiento.md`](docs/00-entendimiento.md) y
 [`docs/decisiones.md`](docs/decisiones.md); las decisiones de diseño y sus motivos están ahí, no en los
 commits.
+
+Si va a evaluar el piloto, mire [`docs/indicadores.md`](docs/indicadores.md) y los CSV de ejemplo en
+[`docs/ejemplos/`](docs/ejemplos/). **Están para criticarlos ahora**: una vez que el piloto arranque, lo
+que no se haya capturado no se puede reconstruir.
 
 ## Requisitos
 

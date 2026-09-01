@@ -401,3 +401,74 @@ El detalle de familia oculta el texto de las notas salvo que la familia lo haya 
 consentimiento. **Se filtran en lectura, nunca se descartan en escritura**: la nota es de la familia
 igual, y si más adelante autoriza, su historia sigue completa. La interfaz dice explícitamente cuando
 está viendo una familia que no autorizó.
+
+---
+
+## D-013 — Los indicadores se definen ahora, en borrador, porque después no hay margen
+
+**Fecha:** 2026-08-31 · **Estado:** vigente · **Resuelve:** contradicción 4 de `00-entendimiento.md`
+
+El modelo operativo v1.0 no tiene indicadores y la propuesta le promete a la clínica métricas sin
+numerador ni denominador. Se definieron en `docs/indicadores.md`, marcados como **borrador para revisión
+de Leer en Familia y del evaluador**, con cada umbral como constante nombrada en
+`domain/indicators.ts`.
+
+**El motivo de hacerlo sin datos es precisamente que no hay datos.** Una vez que el piloto arranque, la
+forma del CSV queda congelada por lo que se capturó: nadie puede reconstruir la adherencia de la semana 3
+de una familia que ya terminó. Hoy, agregar una columna es una línea. En la semana 12 es imposible.
+
+Por eso el entregable importante de la fase no es el endpoint de exportación sino los **CSV de ejemplo en
+`docs/ejemplos/`**, generados con 12 familias sintéticas por `backend/scripts/generar-ejemplos.ts` (sin
+AWS, sin red, con semilla fija para que regenerarlos dé un diff idéntico). Están para que alguien los
+critique antes de que sirvan para algo.
+
+### Lo que no se hizo, a propósito
+
+No se calibraron umbrales. Si "participación activa" es registrar una vez por semana o tres, si la meta de
+adherencia es 50% o 70%, si un `read` cuenta como participación — eso lo decide Leer en Familia con el
+evaluador. Los tres umbrales propuestos (`UMBRAL_SEMANA_ACTIVA = 1`, `UMBRAL_FAMILIA_ADHERENTE = 0.5`,
+`OBJETIVO_PRIMERA_RESPUESTA_HORAS = 48`) llevan `(P)` de propuesta en el documento y en el propio CSV.
+
+### El denominador de la adherencia
+
+Semanas activas dividido **semanas transcurridas**, no dividido 8. Con anclaje al ingreso (D-003) el
+reclutamiento es escalonado, así que al principio del piloto casi toda la cohorte lleva pocas semanas.
+Dividir entre 8 marcaría como fracaso a una familia que ingresó la semana pasada. La retención por semana
+usa el mismo criterio: solo las familias que llegaron a esa semana entran en su denominador.
+
+---
+
+## D-014 — Un `Scan` para la exportación, y el CSV se escribe pensando en Excel
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+**Un `Scan` paginado, no consultas por familia.** Un `Scan` suele ser el instinto equivocado; acá es el
+correcto. La alternativa son ~50 consultas de familia más una por mensaje enviado para encontrar su estado
+de entrega — unas 800 lecturas para una cohorte de 50 familias. La tabla entera son unos miles de ítems
+pequeños, la exportación corre un puñado de veces en la vida del piloto, y una sola pasada es más rápida y
+más fácil de razonar. Si un programa futuro engorda la tabla, esto es lo primero a revisar.
+
+**El CSV se escribe para Excel, no para un pipe de Unix.** Dos detalles que un `join(',')` ingenuo rompe:
+
+1. **Inyección de fórmulas.** Un cuidador puede escribir `=HYPERLINK("http://...")` en una nota de la
+   bitácora. Excel ejecuta una celda que empieza con `=`, `+`, `-`, `@`, tabulación o retorno de carro.
+   Esas celdas llevan un apóstrofo delante. Sin eso, exportar los datos del piloto le entregaría a un
+   atacante una forma de ejecutar algo en la laptop del evaluador. Con test.
+2. **BOM.** Un UTF-8 sin BOM abre como galimatías en Excel de Windows: "Mateo" sobrevive, "canción" no.
+
+### Qué sale y qué no
+
+Todo va seudonimizado: sin teléfonos, sin nombre del bebé, sin nombre de cuidador. El `familia_id` es un
+UUID que solo la plataforma resuelve — lo que permite que la ONG actúe sobre un hallazgo. **Seudonimizado
+no es anonimizado**: bajo la Ley 29733 estos archivos siguen siendo datos personales, y eso se declara en
+`indicadores.md` en vez de dejarlo a que el lector lo deduzca.
+
+El texto de la pregunta de la familia sí sale —es donde vive el hallazgo cualitativo—; **el texto de la
+respuesta del gestor no**, porque el conteo y el tiempo es lo que la evaluación necesita y cada copia
+adicional de una conversación es un lugar más del que se puede filtrar.
+
+El texto de las notas solo sale para las familias que lo autorizaron, y una columna `nota_autorizada` dice
+si se omitió: una celda vacía sola no distingue "no escribió nada" de "no autorizó".
+
+**Exportar es una de las tres acciones auditadas**, junto con abrir el detalle de una familia y responder
+un feedback. Es la que saca datos de menores de la plataforma y los pone en la laptop de alguien.

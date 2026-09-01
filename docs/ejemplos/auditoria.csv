@@ -1,0 +1,14 @@
+﻿momento,gestor_sub,gestor_correo,accion,familia_id,detalle
+2026-09-04T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-01,
+2026-09-11T15:30:00.000Z,gestor-b,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-02,
+2026-09-18T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-03,
+2026-09-18T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-04,
+2026-09-25T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-05,
+2026-10-02T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-06,
+2026-10-09T15:30:00.000Z,gestor-b,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-07,
+2026-10-16T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-08,
+2026-10-30T15:30:00.000Z,gestor-b,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-09,
+2026-11-06T15:30:00.000Z,gestor-b,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-10,
+2026-11-13T15:30:00.000Z,gestor-b,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-11,
+2026-11-20T15:30:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,ver_detalle_familia,ej-12,
+2026-11-24T09:00:00.000Z,gestor-a,ejemplo@leerenfamilia.pe,exportar_datos,,familias

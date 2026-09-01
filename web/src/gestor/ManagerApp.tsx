@@ -3,10 +3,11 @@ import '../shared/styles.css';
 import './gestor.css';
 import { currentIdToken, loadConfig, signOut } from './auth.ts';
 import { Bandeja } from './Bandeja.tsx';
+import { Exportar } from './Exportar.tsx';
 import { Familias } from './Familias.tsx';
 import { Login } from './Login.tsx';
 
-type View = 'bandeja' | 'familias';
+type View = 'bandeja' | 'familias' | 'exportar';
 
 export default function ManagerApp() {
   const [ready, setReady] = useState(false);
@@ -57,9 +58,14 @@ export default function ManagerApp() {
           <button type="button" className="chip" aria-pressed={view === 'familias'} onClick={() => setView('familias')}>
             Familias
           </button>
+          <button type="button" className="chip" aria-pressed={view === 'exportar'} onClick={() => setView('exportar')}>
+            Exportar
+          </button>
         </div>
 
-        {view === 'bandeja' ? <Bandeja /> : <Familias />}
+        {view === 'bandeja' && <Bandeja />}
+        {view === 'familias' && <Familias />}
+        {view === 'exportar' && <Exportar />}
 
         <p className="small muted" style={{ marginTop: '2rem' }}>
           Cada vez que abres el detalle de una familia o respondes un mensaje queda registrado con tu

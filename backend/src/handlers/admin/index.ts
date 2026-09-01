@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { DomainError } from '../../domain/errors.ts';
 import { AdminDataStore } from '../../adapters/admin-store.ts';
+import { ExportDataStore } from '../../adapters/export-store.ts';
 import { Store } from '../../adapters/dynamo.ts';
 import { ParameterStore } from '../../adapters/ssm.ts';
 import { createWhatsAppProvider } from '../../adapters/whatsapp/index.ts';
@@ -14,12 +15,15 @@ import {
   openFamilyDetail,
   replyToFeedback,
 } from './logic.ts';
+import { buildCsv, isDataset } from './export.ts';
+import { assertIsGestor } from './logic.ts';
 import type { Gestor, InboxFilter } from './ports.ts';
 
 const table = requireEnv('TABLE_NAME');
 const parameters = new ParameterStore({ prefix: requireEnv('SSM_PREFIX') });
 const store = new AdminDataStore(table);
 const mockSink = new Store(table);
+const exportStore = new ExportDataStore(table);
 
 /**
  * Claims come from the HTTP API's native Cognito authorizer, which has already validated the
@@ -100,6 +104,36 @@ export async function handler(
         },
       );
       return json(200, outcome);
+    }
+
+    if (path[0] === 'export' && method === 'GET') {
+      const dataset = (path[1] ?? '').replace(/\.csv$/, '');
+      if (!isDataset(dataset)) {
+        return json(404, { error: 'dataset_desconocido' });
+      }
+      assertIsGestor(gestor);
+
+      // Exporting is one of the three audited actions (encargo §8): it takes data about minors out
+      // of the platform and onto somebody's laptop.
+      await store.writeAudit({
+        gestorSub: gestor.sub,
+        gestorEmail: gestor.email,
+        action: 'exportar_datos',
+        familyId: null,
+        at: now.toISOString(),
+        detail: dataset,
+      });
+
+      const bundle = await exportStore.load(today, program.programWeeks);
+      return {
+        statusCode: 200,
+        headers: {
+          'content-type': 'text/csv; charset=utf-8',
+          'content-disposition': `attachment; filename="nplp-${dataset}-${today}.csv"`,
+          'cache-control': 'no-store',
+        },
+        body: buildCsv(dataset, bundle),
+      };
     }
 
     if (path[0] === 'cerrar' && method === 'POST') {

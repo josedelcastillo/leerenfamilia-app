@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 6**. Infraestructura, dominio, WhatsApp, envío semanal y ambas superficies de la PWA construidos y probados; la exportación de indicadores y los documentos llegan en las fases 7 y 8.
+Estado: **fase 7**. Todo el software construido y probado: infraestructura, dominio, WhatsApp, envío semanal, ambas superficies y la exportación de indicadores. Falta la fase 8, que son documentos.
 
 ## Forma general
 
@@ -319,6 +319,22 @@ precache del service worker para que nunca quede una versión vieja.
 **El bundle del gestor pesa 103 KB y el de la familia 17 KB, y son chunks separados**: el dispositivo de una
 familia nunca descarga el código de Cognito ni la vista de gestión.
 
+## Exportación de indicadores (fase 7)
+
+`GET /api/gestor/export/{dataset}.csv` produce seis archivos: `resumen`, `familias`, `bitacora`, `envios`,
+`feedback` y `auditoria`. Las definiciones de cada indicador están en `indicadores.md`; las decisiones de
+implementación en `decisiones.md` D-013 y D-014.
+
+Tres cosas que no son obvias:
+
+- **Un `Scan` paginado**, no consultas por familia. Ver D-014 para por qué a esta escala es lo correcto.
+- **El CSV se neutraliza contra inyección de fórmulas** y lleva BOM. Una nota de bitácora es texto libre
+  escrito por un desconocido que va a terminar abierto en Excel.
+- **Exportar queda auditado.** Es la acción que saca datos de menores de la plataforma.
+
+Los CSV de ejemplo en `ejemplos/` se generan sin AWS y sin red con
+`node backend/scripts/generar-ejemplos.ts`, con semilla fija para que regenerarlos dé un diff idéntico.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -335,7 +351,7 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 320 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 372 tests, todos pasan |
 | `npm test` (web) | 15 tests, todos pasan |
 | `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |

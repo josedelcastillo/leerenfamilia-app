@@ -1,0 +1,12 @@
+﻿familia_id,creado,canal,tipo,estado,respuestas,horas_primera_respuesta,texto_familia
+ej-05,2026-10-05T14:00:00.000Z,whatsapp,problema,respondido,1,26.0,Texto de ejemplo escrito por la familia.
+ej-04,2026-10-11T14:00:00.000Z,pwa,comentario,abierto,0,,Texto de ejemplo escrito por la familia.
+ej-02,2026-10-20T14:00:00.000Z,pwa,pedido,respondido,1,40.0,Texto de ejemplo escrito por la familia.
+ej-01,2026-10-22T14:00:00.000Z,whatsapp,consulta,respondido,1,72.0,Texto de ejemplo escrito por la familia.
+ej-01,2026-10-25T14:00:00.000Z,whatsapp,consulta,respondido,1,2.0,Texto de ejemplo escrito por la familia.
+ej-07,2026-10-29T14:00:00.000Z,whatsapp,comentario,respondido,1,2.0,Texto de ejemplo escrito por la familia.
+ej-09,2026-10-29T14:00:00.000Z,pwa,consulta,respondido,1,40.0,Texto de ejemplo escrito por la familia.
+ej-07,2026-11-03T14:00:00.000Z,pwa,comentario,respondido,1,18.0,Texto de ejemplo escrito por la familia.
+ej-06,2026-11-06T14:00:00.000Z,pwa,pedido,respondido,1,18.0,Texto de ejemplo escrito por la familia.
+ej-08,2026-11-12T14:00:00.000Z,pwa,consulta,respondido,1,26.0,Texto de ejemplo escrito por la familia.
+ej-06,2026-11-21T14:00:00.000Z,whatsapp,comentario,respondido,1,72.0,Texto de ejemplo escrito por la familia.

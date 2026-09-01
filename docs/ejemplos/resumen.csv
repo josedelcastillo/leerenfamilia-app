@@ -1,0 +1,38 @@
+﻿indicador,valor,nota
+corte,2026-11-24,Fecha hasta la que se calcula todo
+semanas_programa,8,
+familias,12,
+familias_activas,11,
+cuidadores_inscritos,16,
+familias_con_baja,1,
+tasa_baja,0.083,familias con baja / familias
+adherencia_promedio,0.436,promedio de (semanas activas / semanas transcurridas) por familia
+adherencia_mediana,0.500,
+proporcion_familias_adherentes,0.583,familias con adherencia >= 0.5 (umbral PROPUESTO)
+umbral_semana_activa,1,entradas de bitácora mínimas para contar la semana como activa (PROPUESTO)
+entradas_bitacora,72,
+minutos_bitacora,990,
+entradas_lectura,38,
+entradas_cancion,11,
+entradas_juego,9,
+entradas_conversacion,14,
+envios_realizados,91,
+tasa_entrega,0.934,entregados / enviados
+tasa_lectura,0.694,leídos / entregados
+mensajes_facturables,85,según Meta
+feedback_total,11,
+feedback_abierto,1,sin responder al corte
+proporcion_feedback_whatsapp,0.455,cuánto del canal bidireccional entra por WhatsApp y no por la app
+primera_respuesta_mediana_horas,26.0,
+primera_respuesta_p90_horas,72.0,
+respuestas_dentro_del_objetivo,0.800,objetivo 48 h (PROPUESTO: el modelo operativo no define plazo)
+mensajes_categoria_utility,69,categoría de precio de Meta
+mensajes_categoria_marketing,16,categoría de precio de Meta
+retencion_semana_01,0.583,7 activas de 12 que llegaron a la semana
+retencion_semana_02,0.417,5 activas de 12 que llegaron a la semana
+retencion_semana_03,0.455,5 activas de 11 que llegaron a la semana
+retencion_semana_04,0.600,6 activas de 10 que llegaron a la semana
+retencion_semana_05,0.333,3 activas de 9 que llegaron a la semana
+retencion_semana_06,0.625,5 activas de 8 que llegaron a la semana
+retencion_semana_07,0.125,1 activas de 8 que llegaron a la semana
+retencion_semana_08,0.571,4 activas de 7 que llegaron a la semana
