@@ -197,6 +197,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/register/index.ts
@@ -231,6 +232,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/content/index.ts
@@ -265,6 +267,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/tracking/index.ts
@@ -299,6 +302,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/feedback/index.ts
@@ -341,6 +345,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/admin/index.ts
@@ -381,6 +386,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/weekly-send/index.ts
@@ -410,6 +416,7 @@ Resources:
         Target: es2023
         Minify: true
         Sourcemap: true
+        External: ['@aws-sdk/*', '@smithy/*']
         OutExtension: ['.js=.mjs']
         EntryPoints:
           - src/handlers/wa-webhook/index.ts
