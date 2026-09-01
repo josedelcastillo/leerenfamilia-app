@@ -20,8 +20,16 @@ Cómo se despliega, se opera y se apaga esta plataforma. Está escrito para algu
 ```bash
 cd backend && npm install && cd ..
 sam build --template infra/template.yaml
-sam deploy --guided --region us-east-1
+node scripts/verificar-build.mjs
+sam deploy --guided --region us-east-1 --template-file .aws-sam/build/template.yaml
 ```
+
+> **`--template-file .aws-sam/build/template.yaml` no es opcional.** Es el error de despliegue más
+> caro de este proyecto y ya ocurrió dos veces. Si pasa `--template infra/template.yaml` al `deploy`,
+> SAM empaqueta el **fuente** —la carpeta `backend/` tal cual, sin bundle— en vez del artefacto
+> construido. CloudFormation reporta éxito, el stack queda verde, y **todas las Lambdas mueren al
+> arrancar** con `Runtime.ImportModuleError: Cannot find module 'index'`, que no dice nada del motivo
+> real. `verificar-build.mjs` lo detecta antes de desplegar.
 
 En `--guided`, los parámetros que importan:
 
@@ -138,7 +146,7 @@ Cuando exista la WABA:
 5. Enviar plantillas a aprobación: `nplp_semana` (envío semanal) y `nplp_respuesta` (respuesta a
    feedback). Redacte la segunda como respuesta a una solicitud del usuario; es lo que la hace
    defendible como `utility` y no como `marketing`.
-6. Recién entonces: `sam deploy --parameter-overrides WaProvider=meta`.
+6. Recién entonces: `sam deploy --template-file .aws-sam/build/template.yaml --parameter-overrides WaProvider=meta`.
 
 **Cambie a `meta` solo después de que el flujo completo funcione en `mock`.** Cualquier valor que no sea
 exactamente `meta` selecciona el mock, a propósito: una variable mal escrita debe fallar hacia no enviar
@@ -163,7 +171,8 @@ Meta y decidiendo a mano.
 
 | Síntoma | Dónde mirar |
 |---|---|
-| **La API responde 500 en todo** | Casi siempre es configuración, no código. Ver abajo |
+| **`Runtime.ImportModuleError: Cannot find module 'index'`** | Se desplegó el template **fuente** en vez del construido. Ver abajo |
+| **La API responde 500 en todo** | Configuración o empaquetado, casi nunca código. Ver abajo |
 | **La API responde 503 `configuracion_incompleta`** | Falta un `SecureString` en SSM. El log dice **cuál**: busque `missing_parameters` |
 | El webhook responde 403 | `WA_APP_SECRET` no coincide con el App Secret de Meta. La firma se calcula sobre los bytes crudos |
 | La familia no recibe el mensaje semanal | El reporte de `fn-weekly-send` dice la razón: `familia_inactiva`, `programa_finalizado`, `ya_enviado_esta_semana`, `sin_cuidadores_con_opt_in` |
@@ -177,6 +186,29 @@ Meta y decidiendo a mano.
 | Un cambio de la PWA no aparece | Falta invalidar CloudFront para `/index.html` y `/sw.js` |
 
 Todos los log groups están bajo `/nplp/<stack>/fn-*` con retención de 14 días.
+
+### `Cannot find module 'index'`
+
+La Lambda muere al arrancar, antes de ejecutar una sola línea propia. El artefacto desplegado no tiene
+`index.mjs` en su raíz, casi siempre porque se desplegó el template fuente en lugar del construido.
+
+Los dos templates son distintos y ahí está todo:
+
+| Template | `CodeUri` | Qué sube |
+|---|---|---|
+| `infra/template.yaml` (fuente) | `../backend` | La carpeta `backend/` cruda: `src/`, `package.json`, TypeScript sin compilar |
+| `.aws-sam/build/template.yaml` (construido) | `ContentFunction` | El bundle: `index.mjs` |
+
+```bash
+# Confirme qué hay dentro del artefacto:
+ls .aws-sam/build/ContentFunction/     # debe listar index.mjs
+
+# Y verifíquelo todo de una:
+node scripts/verificar-build.mjs
+```
+
+La solución es siempre la misma: `sam build`, verificar, y desplegar con
+`--template-file .aws-sam/build/template.yaml`.
 
 ### Cuando la API devuelve 500
 

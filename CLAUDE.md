@@ -45,6 +45,10 @@ cd web && npm install && npm test && npm run build
 # Infraestructura
 sam validate --template infra/template.yaml --lint
 sam build --template infra/template.yaml
+node scripts/verificar-build.mjs    # antes de cualquier deploy
+
+# Desplegar: SIEMPRE con el template construido, nunca con el fuente
+sam deploy --template-file .aws-sam/build/template.yaml
 
 # Instalabilidad y funcionamiento offline, contra un build servido
 cd web && npx vite preview --port 4173 &

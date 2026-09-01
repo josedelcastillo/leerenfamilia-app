@@ -566,3 +566,39 @@ arregla.
 
 **Lección general:** un `await` fuera del `try` en un handler de Lambda convierte cualquier fallo de
 infraestructura en un 500 sin diagnóstico. Vale revisarlo en cada función nueva.
+
+---
+
+## D-018 — El build se verifica antes de desplegar
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige un defecto del runbook**
+
+Ocurrido dos veces en producción: la API respondía 500 en todo y el log decía
+`Runtime.ImportModuleError: Cannot find module 'index'`.
+
+**La causa no era el código ni la configuración: era desplegar el template equivocado.**
+
+| Template | `CodeUri` | Qué sube |
+|---|---|---|
+| `infra/template.yaml` | `../backend` | La carpeta cruda: TypeScript sin compilar, sin `index.mjs` |
+| `.aws-sam/build/template.yaml` | `ContentFunction` | El bundle de esbuild |
+
+Pasar `--template infra/template.yaml` al `sam deploy` empaqueta el fuente. Y lo peor no es que
+falle: es que **falla en silencio**. CloudFormation reporta éxito, el stack queda verde, y las siete
+Lambdas mueren al arrancar con un error que no menciona ni el empaquetado ni el template.
+
+El runbook decía `sam build --template infra/template.yaml` seguido de `sam deploy` a secas, confiando
+en que SAM tomara el template construido por defecto. Repetir `--template` en la segunda línea es lo
+natural, y rompe todo. **Era una trampa del runbook, no un descuido de quien despliega.**
+
+Tres cambios:
+
+1. El runbook y `CLAUDE.md` usan **siempre** `sam deploy --template-file .aws-sam/build/template.yaml`,
+   explícito, sin depender del valor por defecto.
+2. `scripts/verificar-build.mjs` comprueba que cada artefacto tenga `index.mjs` en su raíz y que
+   ningún `CodeUri` del template construido siga apuntando al fuente. Sale con código distinto de cero
+   y dice exactamente qué hacer.
+3. El síntoma está en la tabla de diagnóstico del runbook, con los dos templates lado a lado.
+
+**Lección:** un despliegue que reporta éxito y deja el sistema muerto es peor que uno que falla. La
+verificación va entre el build y el deploy, no después del incidente.
