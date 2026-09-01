@@ -82,6 +82,11 @@ export class SyncQueue {
     return (await this.#storage.all()).length;
   }
 
+  /** What is still queued, so the UI can show it alongside what the server already has. */
+  async snapshot(): Promise<QueuedItem[]> {
+    return this.#storage.all();
+  }
+
   /**
    * Sends what is queued and reconciles the results.
    *

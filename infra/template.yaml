@@ -283,6 +283,13 @@ Resources:
             ApiId: !Ref Api
             Path: /api/seguimiento
             Method: POST
+        # The family reads back its own log, so the history survives leaving the screen.
+        ListOwn:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /api/seguimiento
+            Method: GET
 
   FeedbackLogGroup:
     Type: AWS::Logs::LogGroup

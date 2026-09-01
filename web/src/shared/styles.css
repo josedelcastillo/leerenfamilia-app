@@ -188,6 +188,15 @@ button:focus-visible, a:focus-visible {
   border-top-color: var(--brand);
 }
 
+.thread-reply {
+  border-left: 4px solid var(--brand);
+  background: #eef4f6;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0 0.5rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.thread-reply p:last-child { margin-bottom: 0; }
+
 .visually-hidden {
   position: absolute; width: 1px; height: 1px;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;

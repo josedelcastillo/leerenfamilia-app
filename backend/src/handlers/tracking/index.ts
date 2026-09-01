@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { json } from '../../shared/http.ts';
 import { familyStore, openSession, parseBody, toErrorResponse } from '../family-runtime.ts';
-import { applySync, type SyncItem } from './logic.ts';
+import { applySync, listOwnLog, type SyncItem } from './logic.ts';
 
 /** One flush of the device's queue may not be unbounded; the client batches beyond this. */
 const MAX_ITEMS = 100;
@@ -16,6 +16,11 @@ export async function handler(
 
   try {
     const { context, principal, today, now } = opened.session;
+
+    if (event.requestContext.http.method === 'GET') {
+      return json(200, await listOwnLog(familyStore, context));
+    }
+
     const body = parseBody(event);
     const items = Array.isArray(body['items']) ? (body['items'] as SyncItem[]) : [];
 

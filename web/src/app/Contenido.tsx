@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api, type ContentResponse, type WeekContent } from '../shared/api.ts';
+import { api, type Activity, type ContentResponse, type WeekContent } from '../shared/api.ts';
 import type { QueuedKind } from '../shared/sync-queue.ts';
+import { RegistroForm, todayLocal } from './components/RegistroForm.tsx';
 
 const KIND_LABEL: Record<string, string> = {
   lectura: 'Lectura',
@@ -17,6 +18,8 @@ export function Contenido({
   const [content, setContent] = useState<ContentResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openWeek, setOpenWeek] = useState<number | null>(null);
+  const [logging, setLogging] = useState<{ week: number; activity: Activity } | null>(null);
+  const [justLogged, setJustLogged] = useState<string | null>(null);
 
   useEffect(() => {
     api
@@ -28,9 +31,20 @@ export function Contenido({
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Error'));
   }, []);
 
-  // Recorded through the queue like everything else, so opening an activity offline is not lost.
-  const recordAccess = (week: number, resourceId: string) =>
-    void enqueue('acceso', { resourceId, week, at: new Date().toISOString() });
+  /**
+   * Opening a week records that the family looked at it — "who opened what and when", which is what
+   * the access entity is for. The client id is fixed per week and day, so re-opening the same week
+   * ten times in an afternoon is one record, not ten.
+   */
+  function recordAccess(week: number) {
+    const day = todayLocal();
+    void enqueue('acceso', {
+      clientId: `acceso-${week}-${day}`,
+      resourceId: `semana-${String(week).padStart(2, '0')}`,
+      week,
+      at: `${day}T00:00:00.000Z`,
+    });
+  }
 
   if (error !== null) {
     return <p className="banner banner--error">No pudimos cargar el contenido. {error}</p>;
@@ -40,6 +54,36 @@ export function Contenido({
   }
 
   const current = Math.min(content.currentWeek, content.programWeeks);
+
+  if (logging !== null) {
+    return (
+      <section>
+        <h1>{logging.activity.title}</h1>
+        <p className="muted small">
+          Semana {logging.week} · anota cuánto rato le dedicaron.
+        </p>
+        <RegistroForm
+          initialKind={logging.activity.kind}
+          submitLabel="Registrar"
+          onCancel={() => setLogging(null)}
+          onSubmit={async (values) => {
+            await enqueue('bitacora', {
+              clientId: crypto.randomUUID(),
+              date: values.date,
+              kind_actividad: values.kind,
+              minutes: values.minutes,
+              // Ties the entry to the activity it came from, which is what lets the pilot see which
+              // resources actually get used.
+              resourceId: logging.activity.id,
+              note: values.note === '' ? null : values.note,
+            });
+            setLogging(null);
+            setJustLogged(logging.activity.title);
+          }}
+        />
+      </section>
+    );
+  }
 
   return (
     <section>
@@ -54,6 +98,12 @@ export function Contenido({
           : `Semana ${current} de ${content.programWeeks}. Las semanas anteriores siguen disponibles.`}
       </p>
 
+      {justLogged !== null && (
+        <p className="banner banner--pending" role="status">
+          Registramos «{justLogged}» en tu bitácora.
+        </p>
+      )}
+
       {content.weeks.length === 0 && (
         <p className="card card--muted">Tu programa todavía no comienza.</p>
       )}
@@ -64,8 +114,15 @@ export function Contenido({
           week={week}
           isCurrent={week.week === current}
           open={openWeek === week.week}
-          onToggle={() => setOpenWeek(openWeek === week.week ? null : week.week)}
-          onOpenActivity={(resourceId) => recordAccess(week.week, resourceId)}
+          onToggle={() => {
+            const next = openWeek === week.week ? null : week.week;
+            setOpenWeek(next);
+            if (next !== null) recordAccess(week.week);
+          }}
+          onLogActivity={(activity) => {
+            setJustLogged(null);
+            setLogging({ week: week.week, activity });
+          }}
         />
       ))}
     </section>
@@ -77,13 +134,13 @@ function Semana({
   isCurrent,
   open,
   onToggle,
-  onOpenActivity,
+  onLogActivity,
 }: {
   week: WeekContent;
   isCurrent: boolean;
   open: boolean;
   onToggle: () => void;
-  onOpenActivity: (resourceId: string) => void;
+  onLogActivity: (activity: Activity) => void;
 }) {
   return (
     <article className={isCurrent ? 'card' : 'card card--muted'}>
@@ -115,12 +172,8 @@ function Semana({
               <p className="small muted">
                 {activity.instructions} · unos {activity.approximateMinutes} minutos
               </p>
-              <button
-                type="button"
-                className="chip"
-                onClick={() => onOpenActivity(activity.id)}
-              >
-                Ya la hicimos
+              <button type="button" className="chip" onClick={() => onLogActivity(activity)}>
+                Ya lo hicimos
               </button>
             </div>
           ))}
