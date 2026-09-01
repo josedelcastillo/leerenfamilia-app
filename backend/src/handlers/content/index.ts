@@ -6,11 +6,11 @@ import { getContent } from './logic.ts';
 export async function handler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  const opened = await openSession(event);
-  if ('response' in opened) {
-    return opened.response;
-  }
   try {
+    const opened = await openSession(event);
+    if ('response' in opened) {
+      return opened.response;
+    }
     const { context, today } = opened.session;
     return json(200, await getContent(familyStore, context, today), {
       // Content is identical for every family in the same programme week, and the PWA caches it in

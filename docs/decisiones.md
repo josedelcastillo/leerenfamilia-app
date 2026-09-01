@@ -534,3 +534,71 @@ registra al **desplegar una semana**, que es cuando la familia efectivamente mir
 El `clientId` es fijo por semana y por día (`acceso-<semana>-<fecha>`), y el timestamp es el inicio del
 día, así que abrir la semana 3 diez veces una tarde deja **un** registro, no diez. Acota el volumen y
 mantiene el dato interpretable: "abrió la semana 3 el 15 de septiembre".
+
+---
+
+## D-017 — Un despliegue incompleto responde 503 y dice qué falta, no 500 en blanco
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige un defecto propio**
+
+Reportado en uso: la API devolvía 500 en todo, sin nada útil.
+
+**La causa era mía.** En `fn-content`, `fn-tracking` y `fn-feedback`, `openSession()` corría **fuera**
+del `try`. Esa función lee el secreto de firma en SSM y carga la familia de DynamoDB, así que cualquier
+fallo ahí —un `SecureString` que no se creó, un permiso IAM incompleto, un despliegue a medias— escapaba
+del handler, mataba la invocación y API Gateway devolvía un 500 genérico. El caso más probable en la
+práctica, un parámetro faltante, era también el más opaco de diagnosticar.
+
+Tres cambios:
+
+1. **`openSession()` ahora corre dentro del `try`** en las tres funciones. Ningún fallo suyo vuelve a
+   escapar.
+2. **`MissingParameterError` es un tipo propio**, no un `Error` genérico. No es un bug: es un
+   despliegue al que le falta un paso, y hay que poder distinguirlo para decirlo.
+3. **La respuesta es 503 `configuracion_incompleta`** y el log estructurado nombra **qué parámetros
+   faltan** y apunta al paso del runbook. La respuesta no dice cuál, para no revelar qué secreto falta
+   a quien pregunta desde afuera; el log sí, porque es donde mira quien opera.
+
+El webhook de Meta recibe el mismo tratamiento, con una diferencia deliberada: **falla cerrado**.
+Responder 200 sin haber podido verificar la firma le diría a Meta que el mensaje se procesó cuando en
+realidad se descartó. El 503 hace que Meta reintente, que es lo correcto mientras la configuración se
+arregla.
+
+**Lección general:** un `await` fuera del `try` en un handler de Lambda convierte cualquier fallo de
+infraestructura en un 500 sin diagnóstico. Vale revisarlo en cada función nueva.
+
+---
+
+## D-018 — El build se verifica antes de desplegar
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige un defecto del runbook**
+
+Ocurrido dos veces en producción: la API respondía 500 en todo y el log decía
+`Runtime.ImportModuleError: Cannot find module 'index'`.
+
+**La causa no era el código ni la configuración: era desplegar el template equivocado.**
+
+| Template | `CodeUri` | Qué sube |
+|---|---|---|
+| `infra/template.yaml` | `../backend` | La carpeta cruda: TypeScript sin compilar, sin `index.mjs` |
+| `.aws-sam/build/template.yaml` | `ContentFunction` | El bundle de esbuild |
+
+Pasar `--template infra/template.yaml` al `sam deploy` empaqueta el fuente. Y lo peor no es que
+falle: es que **falla en silencio**. CloudFormation reporta éxito, el stack queda verde, y las siete
+Lambdas mueren al arrancar con un error que no menciona ni el empaquetado ni el template.
+
+El runbook decía `sam build --template infra/template.yaml` seguido de `sam deploy` a secas, confiando
+en que SAM tomara el template construido por defecto. Repetir `--template` en la segunda línea es lo
+natural, y rompe todo. **Era una trampa del runbook, no un descuido de quien despliega.**
+
+Tres cambios:
+
+1. El runbook y `CLAUDE.md` usan **siempre** `sam deploy --template-file .aws-sam/build/template.yaml`,
+   explícito, sin depender del valor por defecto.
+2. `scripts/verificar-build.mjs` comprueba que cada artefacto tenga `index.mjs` en su raíz y que
+   ningún `CodeUri` del template construido siga apuntando al fuente. Sale con código distinto de cero
+   y dice exactamente qué hacer.
+3. El síntoma está en la tabla de diagnóstico del runbook, con los dos templates lado a lado.
+
+**Lección:** un despliegue que reporta éxito y deja el sistema muerto es peor que uno que falla. La
+verificación va entre el build y el deploy, no después del incidente.

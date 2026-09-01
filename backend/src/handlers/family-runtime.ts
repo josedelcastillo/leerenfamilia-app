@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from 'aws-lambda';
 import { DomainError } from '../domain/errors.ts';
 import { FamilyDataStore } from '../adapters/family-store.ts';
-import { ParameterStore } from '../adapters/ssm.ts';
+import { MissingParameterError, ParameterStore } from '../adapters/ssm.ts';
 import { authenticateFamily, type FamilyPrincipal } from '../shared/family-auth.ts';
 import { json } from '../shared/http.ts';
 import { limaDate } from '../shared/lima-date.ts';
@@ -69,6 +69,19 @@ export function parseBody(event: APIGatewayProxyEventV2): Record<string, unknown
 export function toErrorResponse(error: unknown): APIGatewayProxyStructuredResultV2 {
   if (error instanceof DomainError) {
     return json(400, { error: error.code, message: error.message });
+  }
+  if (error instanceof MissingParameterError) {
+    // A deployment that skipped a step, not a bug. Naming the parameters in the log turns what was
+    // an opaque 500 into something diagnosable without a debugging session; the response says the
+    // service is misconfigured but does not leak which secret is missing.
+    console.error(
+      JSON.stringify({
+        event: 'family_api.missing_parameters',
+        parameters: error.names,
+        hint: 'Ver docs/runbook.md, paso 2: crear los SecureString bajo el prefijo del stack',
+      }),
+    );
+    return json(503, { error: 'configuracion_incompleta' });
   }
   console.error(
     JSON.stringify({

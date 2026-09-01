@@ -6,12 +6,11 @@ import { listOwnFeedback, submitFeedback } from './logic.ts';
 export async function handler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  const opened = await openSession(event);
-  if ('response' in opened) {
-    return opened.response;
-  }
-
   try {
+    const opened = await openSession(event);
+    if ('response' in opened) {
+      return opened.response;
+    }
     const { context } = opened.session;
 
     if (event.requestContext.http.method === 'GET') {
