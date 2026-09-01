@@ -6,7 +6,9 @@ export type DomainErrorCode =
   | 'invalid_opt_in'
   | 'invalid_log_entry'
   | 'invalid_feedback'
-  | 'invalid_enrollment';
+  | 'invalid_enrollment'
+  | 'forbidden'
+  | 'not_found';
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode;

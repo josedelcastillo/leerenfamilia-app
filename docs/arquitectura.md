@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 5**. Infraestructura, dominio, WhatsApp, envío semanal y PWA de la familia construidos y probados; la vista del gestor y los informes llegan en las fases 6 y 7.
+Estado: **fase 6**. Infraestructura, dominio, WhatsApp, envío semanal y ambas superficies de la PWA construidos y probados; la exportación de indicadores y los documentos llegan en las fases 7 y 8.
 
 ## Forma general
 
@@ -281,6 +281,44 @@ Verificados con Chromium real, no con un puntaje. Ver `decisiones.md` D-009: Lig
 PWA en la v12, así que el criterio de aceptación original ya no existe y se reemplazó por comprobaciones
 directas.
 
+## PWA del gestor (fase 6)
+
+`fn-admin` sirve `/api/gestor/*` detrás del autorizador JWT nativo de Cognito. Sobre eso, la función
+**verifica en código** que el claim `cognito:groups` incluya `gestores`: el autorizador prueba que el token
+es válido, no que esa persona deba ver datos de familias. Ver `decisiones.md` D-012.
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /familias` | Listado con semana, bitácora de 7 días, envíos y feedback abierto |
+| `GET /familias/{id}` | Detalle de una familia — **escribe auditoría** |
+| `GET /bandeja?estado=` | Bandeja unificada PWA + WhatsApp, más antiguos primero |
+| `POST /respuesta` | Responde y notifica por WhatsApp — **escribe auditoría** |
+| `POST /cerrar` | Cierra un feedback |
+
+El listado se ordena por atención pendiente: primero las familias con mensajes sin responder, después las que
+menos actividad registraron. Es la pregunta que un gestor hace cada mañana.
+
+### La respuesta se guarda aunque WhatsApp falle
+
+Se escribe el feedback, se audita, y recién después se intenta notificar. Si Meta falla, la respuesta ya está
+guardada y la familia la ve en la PWA; la interfaz le dice al gestor cuál de las dos cosas pasó. Perder la
+notificación es recuperable; perder la respuesta que alguien acaba de escribir, no.
+
+Dentro de la ventana de 24 h se manda mensaje libre (gratis, sin aprobación de plantilla); fuera, plantilla.
+Esa decisión la toma `domain/service-window.ts`, la misma función que ya estaba testeada desde la fase 2.
+
+### Sesión del gestor
+
+`amazon-cognito-identity-js` implementa SRP y el desafío TOTP. Se envía el **ID token**, no el access token:
+el autorizador está configurado con `audience: [clientId]` y solo el ID token lleva `aud`.
+
+La configuración del user pool no va compilada en el bundle sino en un `config.json` que se escribe al
+desplegar desde los outputs del stack, así un mismo build sirve para cualquier stack. Está excluido del
+precache del service worker para que nunca quede una versión vieja.
+
+**El bundle del gestor pesa 103 KB y el de la familia 17 KB, y son chunks separados**: el dispositivo de una
+familia nunca descarga el código de Cognito ni la vista de gestión.
+
 ## Toolchain
 
 **TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
@@ -297,7 +335,7 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 293 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 320 tests, todos pasan |
 | `npm test` (web) | 15 tests, todos pasan |
 | `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |

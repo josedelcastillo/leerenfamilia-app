@@ -346,3 +346,58 @@ el medio, porque el navegador no estaba corriendo cuando volvió la conexión.
 `loggedBy` se resuelve en el backend a partir del cuidador que firma el token, ignorando lo que venga en el
 cuerpo. Si lo decidiera el cliente, un dispositivo podría atribuir todas las entradas al cuidador secundario y
 el dato de "quién lee en esta casa" —uno de los pocos que el piloto puede medir— quedaría inservible.
+
+---
+
+## D-011 — La idempotencia de la notificación va por respuesta, no por feedback
+
+**Fecha:** 2026-08-31 · **Estado:** vigente · **Se aparta del encargo**
+
+El encargo pide "Idempotencia por `feedback_id`" para la plantilla de respuesta. **Se implementó por
+`(feedback_id, índice de respuesta)`.**
+
+Con idempotencia solo por `feedback_id`, la primera respuesta se notifica y **ninguna corrección posterior
+se notificaría jamás**. Y las correcciones son parte del diseño: el propio encargo dice que un feedback
+respondido nunca se edita y que corregir significa agregar otra respuesta. Una corrección que la familia no
+recibe es peor que no corregir — la deja actuando sobre la información equivocada, creyendo que es la buena.
+
+La clave por respuesta cumple lo que el requisito quería —un reintento de la misma petición no cobra dos
+veces— sin silenciar las correcciones. Ambos casos tienen test.
+
+---
+
+## D-012 — La pertenencia al grupo se verifica en código, no solo en el autorizador
+
+**Fecha:** 2026-08-31 · **Estado:** vigente
+
+El autorizador JWT del HTTP API valida firma, emisor y audiencia. **Eso prueba que el token es válido, no que
+esa persona deba ver datos de familias.** Cualquier usuario del user pool pasaría el autorizador.
+
+`fn-admin` verifica además que el claim `cognito:groups` contenga `gestores`, y responde 403 si no. Es una
+línea de defensa barata contra un error de administración —una cuenta creada en el pool para otra cosa— y
+contra que un grupo futuro herede acceso sin que nadie lo decida.
+
+**Se envía el ID token, no el access token.** El autorizador está configurado con `audience: [clientId]`, y
+solo el ID token lleva `aud`. Además es el que trae `email` y `cognito:groups`, que son los datos que la API
+usa para autorizar y auditar.
+
+### Qué se audita y qué no
+
+| Acción | ¿Auditada? | Por qué |
+|---|---|---|
+| Abrir el detalle de una familia | **Sí** | Es donde el gestor ve datos de un menor identificable |
+| Responder un feedback | **Sí** | Es una acción sobre los datos de esa familia, atribuible a una persona |
+| Exportar datos (fase 7) | **Sí** | Lo exige la sección 8 del encargo |
+| Listar familias | No | Solo agregados: semana, conteos, minutos. Ningún texto libre |
+| Abrir la bandeja | No | **Decisión discutible**: la bandeja sí muestra texto escrito por las familias |
+
+El último merece una segunda mirada. Auditar cada apertura de la bandeja generaría mucho ruido —es la
+pantalla donde el gestor vive— pero es texto personal. Si en la revisión legal de la fase 8 se considera
+necesario, se agrega; el costo es una escritura más por carga de pantalla.
+
+### Las notas libres se filtran en lectura
+
+El detalle de familia oculta el texto de las notas salvo que la familia lo haya autorizado en el
+consentimiento. **Se filtran en lectura, nunca se descartan en escritura**: la nota es de la familia
+igual, y si más adelante autoriza, su historia sigue completa. La interfaz dice explícitamente cuando
+está viendo una familia que no autorizó.

@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // amazon-cognito-identity-js still reaches for Node's `global`, which does not exist in a
+  // browser. Without this the manager surface throws "global is not defined" at load — in the
+  // production build too, not only in dev.
+  define: {
+    global: 'globalThis',
+  },
   plugins: [
     react(),
     VitePWA({
@@ -33,6 +39,8 @@ export default defineConfig({
       workbox: {
         // The shell is precached, so the app opens with no connection at all.
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
+        // Written at deploy time from the stack outputs, so it must never be precached stale.
+        globIgnores: ['**/config.json'],
         navigateFallback: '/index.html',
         // Never let the service worker answer an API call from cache: a stale reading log or a
         // stale feedback thread would be worse than an error the UI can handle.

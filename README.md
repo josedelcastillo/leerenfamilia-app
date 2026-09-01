@@ -19,7 +19,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 | 3 | Proveedor de WhatsApp con mock, webhook con HMAC, idempotencia | ✅ |
 | 4 | Scheduler semanal y envío end-to-end en modo mock | ✅ |
 | 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ✅ |
-| 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ⏳ |
+| 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ✅ |
 | 7 | Exportación CSV de métricas del piloto | ⏳ |
 | 8 | `costos.md`, `runbook.md`, `tratamiento-datos.md` | ⏳ |
 
@@ -82,6 +82,16 @@ Después del primer despliegue, cree los parámetros `SecureString` bajo el pref
 ```bash
 aws ssm put-parameter --type SecureString --name /nplp/<stack>/WA_ACCESS_TOKEN --value '...'
 # ídem WA_PHONE_NUMBER_ID, WA_APP_SECRET, WA_VERIFY_TOKEN, APP_TOKEN_SECRET
+```
+
+La superficie del gestor lee la configuración de Cognito de un `config.json` que se escribe al desplegar
+desde los outputs del stack, no del bundle:
+
+```bash
+aws cloudformation describe-stacks --stack-name <stack> \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`||OutputKey==`UserPoolClientId`]' > /tmp/out.json
+# construya config.json con esos dos valores y súbalo junto con el resto del build
+aws s3 cp web/dist/ s3://<bucket>/ --recursive
 ```
 
 El piloto se puede desarrollar y demostrar entero con `WaProvider=mock`, sin WABA y sin gastar nada: el
