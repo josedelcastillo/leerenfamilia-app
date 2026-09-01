@@ -108,7 +108,9 @@ Resources:
       UserPoolName: !Sub ${AWS::StackName}-gestores
       # Lite covers TOTP MFA and carries a non-expiring 10,000 MAU free tier; see docs/costos.md.
       UserPoolTier: LITE
-      MfaConfiguration: 'ON'
+      # OPTIONAL, not ON: the sign-in screen does not implement the MFA_SETUP challenge, so a
+      # mandatory pool locks every manager out on first sign-in. See decisiones.md D-019.
+      MfaConfiguration: 'OPTIONAL'
       EnabledMfas: [SOFTWARE_TOKEN_MFA]
       UsernameAttributes: [email]
       AutoVerifiedAttributes: [email]

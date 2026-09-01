@@ -151,6 +151,10 @@ multiplicara por mil.
 
 Decisión: **tier Lite, `MfaConfiguration: ON`, `EnabledMfas: [SOFTWARE_TOKEN_MFA]`.**
 
+> **Modificado por D-019 (2026-09-01):** `MfaConfiguration` está hoy en `OPTIONAL`. El análisis de
+> costo de arriba sigue vigente — TOTP no cuesta nada; lo que cambió es que el ingreso todavía no
+> sabe inscribir el segundo factor.
+
 **MFA por SMS queda excluido deliberadamente.** No es una limitación del tier: los SMS se facturan aparte vía
 SNS por mensaje, y enviar a Perú además exige resolver origination number y salir del sandbox de SNS. TOTP
 evita el gasto y el trámite. El costo para el gestor es tener que instalar una app de autenticación.
@@ -602,3 +606,36 @@ Tres cambios:
 
 **Lección:** un despliegue que reporta éxito y deja el sistema muerto es peor que uno que falla. La
 verificación va entre el build y el deploy, no después del incidente.
+
+---
+
+## D-019 — El MFA pasa de obligatorio a opcional para desbloquear el ingreso
+
+**Fecha:** 2026-09-01 · **Estado:** vigente, **reversible y pendiente de revertir** · **Modifica:** D-005
+
+`MfaConfiguration: 'ON'` dejaba el user pool inaccesible. Con MFA obligatorio y ningún TOTP inscrito,
+Cognito responde al primer ingreso con el reto **`MFA_SETUP`**, y `amazon-cognito-identity-js` invoca
+`callback.mfaSetup(...)`. `web/src/gestor/Login.tsx` implementa `totpRequired`, `mfaRequired` y
+`newPasswordRequired`, pero **no** `mfaSetup`: el ingreso muere con un `TypeError`.
+
+No había forma de rodearlo desde fuera del navegador. El cliente del pool solo habilita
+`ALLOW_USER_SRP_AUTH` y `ALLOW_REFRESH_TOKEN_AUTH`, así que `admin-initiate-auth` con contraseña no
+está disponible y no se puede obtener la sesión que `associate-software-token` necesita. Sin inscribir
+el TOTP no se entra; sin entrar no se inscribe el TOTP.
+
+Decisión: **`MfaConfiguration: 'OPTIONAL'`**, manteniendo `EnabledMfas: [SOFTWARE_TOKEN_MFA]`.
+
+Se eligió `OPTIONAL` y no `OFF` deliberadamente. Con ningún gestor inscrito el efecto práctico hoy es
+el mismo — nadie recibe el reto — pero `OPTIONAL` deja el segundo factor disponible cuenta por cuenta
+sin otro despliegue, y volver a `ON` no exige recrear el pool.
+
+**Esto es deuda de seguridad, no una decisión de diseño.** Los gestores ven datos de familias con
+recién nacidos, incluidas las notas de texto libre que la familia autorizó. `tratamiento-datos.md`
+declaraba el MFA obligatorio como medida de protección y ahora declara la excepción.
+
+Para cerrarla hay que implementar `mfaSetup` en el ingreso: llamar a `associateSoftwareToken`, mostrar
+el secreto y su QR, verificar el código de seis dígitos y recién entonces volver a `ON`. Es lo único
+que falta; el resto del flujo TOTP (`totpRequired` → `submitMfaCode`) ya está escrito y funciona.
+
+**No arranque el piloto con esto en `OPTIONAL`.**
+

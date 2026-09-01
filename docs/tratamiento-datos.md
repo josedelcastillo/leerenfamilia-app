@@ -145,7 +145,7 @@ en la lista de bloqueantes del runbook.
 | Cifrado en tránsito | ✅ TLS. CloudFront redirige HTTP a HTTPS |
 | Credenciales | ✅ SSM `SecureString`, leídas en cold start. Nunca en el repositorio ni en variables de entorno en texto plano |
 | Bucket de la PWA | ✅ Privado, sin acceso público, solo CloudFront con OAC |
-| MFA de los gestores | ✅ Obligatorio, TOTP |
+| MFA de los gestores | ⚠ **Opcional**, TOTP. Desactivado como obligatorio el 2026-09-01 porque el ingreso no implementa la inscripción del segundo factor — ver `decisiones.md` D-019. **Pendiente de reactivar antes del arranque real** |
 | Sin credenciales compartidas | ✅ Cada gestor tiene cuenta propia; es lo que hace posible el registro de accesos |
 | Permisos de las Lambdas | ✅ Solo su tabla y su prefijo de SSM |
 | Autenticación de la familia | ⚠ Token HMAC en el enlace, sin login — **decisión consciente**, ver abajo |
