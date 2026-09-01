@@ -13,6 +13,22 @@ import { GetParametersCommand, SSMClient } from '@aws-sdk/client-ssm';
  */
 const DEFAULT_MAX_AGE_MS = 15 * 60 * 1000;
 
+/**
+ * A parameter the stack needs is not in SSM, or the function cannot read it.
+ *
+ * Typed rather than a bare Error because it is not a bug: it is a deployment that is missing a
+ * step, and it has to be distinguishable so the API can say so instead of returning an opaque 500.
+ */
+export class MissingParameterError extends Error {
+  readonly names: readonly string[];
+
+  constructor(prefix: string, names: readonly string[]) {
+    super(`Faltan parámetros SecureString bajo ${prefix}: ${names.join(', ')}`);
+    this.name = 'MissingParameterError';
+    this.names = names;
+  }
+}
+
 interface CacheEntry {
   readonly value: string;
   readonly fetchedAt: number;
@@ -62,10 +78,8 @@ export class ParameterStore {
 
       const missing = stale.filter((name) => !this.#cache.has(name));
       if (missing.length > 0) {
-        // Fail loudly at cold start rather than send a message with an empty token.
-        throw new Error(
-          `Missing SSM SecureString parameters under ${this.#prefix}: ${missing.join(', ')}`,
-        );
+        // Fail loudly rather than carry on with an empty token.
+        throw new MissingParameterError(this.#prefix, missing);
       }
     }
 

@@ -163,6 +163,8 @@ Meta y decidiendo a mano.
 
 | Síntoma | Dónde mirar |
 |---|---|
+| **La API responde 500 en todo** | Casi siempre es configuración, no código. Ver abajo |
+| **La API responde 503 `configuracion_incompleta`** | Falta un `SecureString` en SSM. El log dice **cuál**: busque `missing_parameters` |
 | El webhook responde 403 | `WA_APP_SECRET` no coincide con el App Secret de Meta. La firma se calcula sobre los bytes crudos |
 | La familia no recibe el mensaje semanal | El reporte de `fn-weekly-send` dice la razón: `familia_inactiva`, `programa_finalizado`, `ya_enviado_esta_semana`, `sin_cuidadores_con_opt_in` |
 | El gestor recibe 403 | La cuenta no está en el grupo `gestores` |
@@ -175,6 +177,36 @@ Meta y decidiendo a mano.
 | Un cambio de la PWA no aparece | Falta invalidar CloudFront para `/index.html` y `/sw.js` |
 
 Todos los log groups están bajo `/nplp/<stack>/fn-*` con retención de 14 días.
+
+### Cuando la API devuelve 500
+
+Un 500 casi nunca es un error de lógica: es la Lambda muriendo antes de poder responder. Las tres
+causas, en orden de frecuencia:
+
+```bash
+# 1. Mire el error real. Es lo primero, siempre.
+aws logs tail /nplp/$STACK/fn-content --since 15m --follow
+```
+
+| Lo que dice el log | Qué pasó | Cómo se arregla |
+|---|---|---|
+| `missing_parameters` | Falta un `SecureString` en SSM | Paso 2 del despliegue. Desde esta versión responde **503**, no 500 |
+| `AccessDenied` sobre `ssm:GetParameters` | La Lambda no puede leer el prefijo | El stack quedó a medio desplegar; vuelva a `sam deploy` |
+| `Missing required environment variable` | `TABLE_NAME` o `SSM_PREFIX` no llegaron a la función | Ídem |
+| `ResourceNotFoundException` de DynamoDB | La tabla del stack no existe | Si borró el stack, la tabla quedó retenida pero el nombre nuevo es otro |
+| `ValidationException` sobre `GSI1` | El índice no existe | Despliegue incompleto |
+
+**El prefijo tiene que coincidir exactamente con el nombre del stack.** Los parámetros se crean bajo
+`/nplp/<stack>/`, y ese valor sale del output `SsmPrefix`. Si el stack se redesplegó con otro nombre,
+los parámetros viejos quedaron huérfanos y la API responde 503 aunque en SSM haya secretos válidos con
+el nombre anterior.
+
+```bash
+# Compruebe que están donde la Lambda los busca:
+aws ssm get-parameters-by-path --path "/nplp/$STACK" --query 'Parameters[].Name'
+# Debe listar los cinco: APP_TOKEN_SECRET, WA_APP_SECRET, WA_VERIFY_TOKEN,
+# WA_ACCESS_TOKEN, WA_PHONE_NUMBER_ID
+```
 
 ## Baja y supresión de datos
 

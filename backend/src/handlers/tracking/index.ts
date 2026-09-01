@@ -9,12 +9,11 @@ const MAX_ITEMS = 100;
 export async function handler(
   event: APIGatewayProxyEventV2,
 ): Promise<APIGatewayProxyStructuredResultV2> {
-  const opened = await openSession(event);
-  if ('response' in opened) {
-    return opened.response;
-  }
-
   try {
+    const opened = await openSession(event);
+    if ('response' in opened) {
+      return opened.response;
+    }
     const { context, principal, today, now } = opened.session;
 
     if (event.requestContext.http.method === 'GET') {
