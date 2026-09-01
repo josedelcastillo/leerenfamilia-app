@@ -16,6 +16,7 @@ import {
   replyToFeedback,
 } from './logic.ts';
 import { buildCsv, isDataset } from './export.ts';
+import { gestorFromClaims } from './claims.ts';
 import { assertIsGestor } from './logic.ts';
 import type { Gestor, InboxFilter } from './ports.ts';
 
@@ -28,24 +29,16 @@ const exportStore = new ExportDataStore(table);
 /**
  * Claims come from the HTTP API's native Cognito authorizer, which has already validated the
  * signature, issuer and audience. We never parse or trust a token by hand here.
+ *
+ * The parsing itself lives in `claims.ts` so it can be tested; this module builds AWS clients at
+ * load time and cannot be imported from a test.
  */
 function gestorFrom(event: APIGatewayProxyEventV2): Gestor {
   const claims =
     (event.requestContext as { authorizer?: { jwt?: { claims?: Record<string, unknown> } } })
       .authorizer?.jwt?.claims ?? {};
 
-  const rawGroups = claims['cognito:groups'];
-  const groups = Array.isArray(rawGroups)
-    ? rawGroups.map(String)
-    : typeof rawGroups === 'string'
-      ? rawGroups.split(/[\s,]+/).filter((group) => group !== '')
-      : [];
-
-  return {
-    sub: String(claims['sub'] ?? ''),
-    email: String(claims['email'] ?? ''),
-    groups,
-  };
+  return gestorFromClaims(claims);
 }
 
 export async function handler(
@@ -60,6 +53,12 @@ export async function handler(
   const query = event.queryStringParameters ?? {};
 
   try {
+    // Every route of this API reads family data, so the group check goes here, before anything is
+    // read. It used to sit only on the routes that touch free text, which left the family list and
+    // the inbox readable by any account in the pool (D-012 says the check is in code; it was in
+    // three of the routes).
+    assertIsGestor(gestor);
+
     const programs = await store.listActivePrograms();
     const program = programs[0];
     if (program === undefined) {
