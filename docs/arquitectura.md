@@ -1,6 +1,6 @@
 # Arquitectura
 
-Estado: **fase 7**. Todo el software construido y probado: infraestructura, dominio, WhatsApp, envío semanal, ambas superficies y la exportación de indicadores. Falta la fase 8, que son documentos.
+Estado: **fase 8, cerrada**. Todo el software construido y probado, y la documentación completa. Lo que falta antes de operar de verdad está al final de `runbook.md`.
 
 ## Forma general
 

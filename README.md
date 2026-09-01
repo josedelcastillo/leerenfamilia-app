@@ -21,7 +21,7 @@ Interfaz y contenido en español (Perú). Código y comentarios en inglés.
 | 5 | PWA familia: contenido, bitácora, feedback, offline, cola de sincronización | ✅ |
 | 6 | PWA gestor: Cognito, familias, bandeja unificada, respuesta, auditoría | ✅ |
 | 7 | Exportación CSV de métricas del piloto | ✅ |
-| 8 | `costos.md`, `runbook.md`, `tratamiento-datos.md` | ⏳ |
+| 8 | `costos.md`, `runbook.md`, `tratamiento-datos.md` | ✅ |
 
 ## Estructura
 
@@ -114,6 +114,16 @@ al ingreso. Todos los identificadores llevan prefijo `demo-`.
 
 ## Protección de datos
 
-Se procesan datos de menores de edad bajo la Ley 29733. El inventario de datos, la base legal, los plazos de
-conservación y el flujo de supresión van en `docs/tratamiento-datos.md` (fase 8), marcado como borrador para
-revisión legal.
+Se procesan datos de menores de edad bajo la Ley 29733. El inventario, la base legal, los plazos de
+conservación y el flujo de supresión están en
+[`docs/tratamiento-datos.md`](docs/tratamiento-datos.md), **marcado como borrador para revisión legal**:
+lo escribió quien construyó la plataforma, no un abogado.
+
+## Antes de que esto llegue a una familia real
+
+La lista completa está al final del [runbook](docs/runbook.md). Lo que más pesa:
+
+- **`sam deploy` nunca se ejecutó** — el entorno de desarrollo no tenía credenciales de AWS
+- El contenido de las 8 semanas, los íconos y el texto de consentimiento son **placeholder**
+- El **endpoint de supresión de datos no está construido**; hoy es manual, y es una obligación legal
+- No existe la WABA: todo el flujo se demuestra con `WA_PROVIDER=mock`, sin gastar nada
