@@ -176,7 +176,7 @@ Meta y decidiendo a mano.
 | **La API responde 503 `configuracion_incompleta`** | Falta un `SecureString` en SSM. El log dice **cuál**: busque `missing_parameters` |
 | El webhook responde 403 | `WA_APP_SECRET` no coincide con el App Secret de Meta. La firma se calcula sobre los bytes crudos |
 | La familia no recibe el mensaje semanal | El reporte de `fn-weekly-send` dice la razón: `familia_inactiva`, `programa_finalizado`, `ya_enviado_esta_semana`, `sin_cuidadores_con_opt_in` |
-| El gestor recibe 403 | La cuenta no está en el grupo `gestores` |
+| El gestor recibe 403 | La cuenta no está en el grupo `gestores`. Verifique con `aws cognito-idp list-users-in-group --user-pool-id $POOL --group-name gestores`. Si **sí** está y aun así recibe 403, es un token emitido antes de agregarla al grupo: `cognito:groups` se sella al autenticarse, así que hay que salir y volver a entrar |
 | El gestor recibe 401 | Token vencido; volver a entrar. La sesión dura 1 hora |
 | La familia recibe 401 | Su token venció (90 días). Se reemite en cada envío semanal, así que solo pasa si estuvo 90 días sin recibir nada |
 | "global is not defined" en la vista del gestor | El `define` de Vite se perdió. Ver D-012 |

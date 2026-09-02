@@ -107,7 +107,7 @@ días y se renueva en cada envío semanal.
 No se usa un autorizador Lambda: sería una octava función y una invocación extra por request. La validación
 va en código compartido dentro de cada handler.
 
-**Gestor: Cognito.** User pool tier Lite, MFA TOTP obligatorio, sin auto-registro, contraseñas de 12
+**Gestor: Cognito.** User pool tier Lite, MFA TOTP **opcional** (era obligatorio; ver D-019), sin auto-registro, contraseñas de 12
 caracteres con las cuatro clases, un solo grupo `gestores`, autorizador JWT nativo del HTTP API. Verificación
 de costo y de por qué TOTP y no SMS: `decisiones.md` D-005.
 

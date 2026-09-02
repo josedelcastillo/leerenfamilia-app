@@ -151,6 +151,10 @@ multiplicara por mil.
 
 Decisión: **tier Lite, `MfaConfiguration: ON`, `EnabledMfas: [SOFTWARE_TOKEN_MFA]`.**
 
+> **Modificado por D-019 (2026-09-01):** `MfaConfiguration` está hoy en `OPTIONAL`. El análisis de
+> costo de arriba sigue vigente — TOTP no cuesta nada; lo que cambió es que el ingreso todavía no
+> sabe inscribir el segundo factor.
+
 **MFA por SMS queda excluido deliberadamente.** No es una limitación del tier: los SMS se facturan aparte vía
 SNS por mensaje, y enviar a Perú además exige resolver origination number y salir del sandbox de SNS. TOTP
 evita el gasto y el trámite. El costo para el gestor es tener que instalar una app de autenticación.
@@ -605,7 +609,79 @@ verificación va entre el build y el deploy, no después del incidente.
 
 ---
 
-## D-019 — El cerebro que crece: solo acumula, nunca se apaga
+## D-019 — El MFA pasa de obligatorio a opcional para desbloquear el ingreso
+
+**Fecha:** 2026-09-01 · **Estado:** vigente, **reversible y pendiente de revertir** · **Modifica:** D-005
+
+`MfaConfiguration: 'ON'` dejaba el user pool inaccesible. Con MFA obligatorio y ningún TOTP inscrito,
+Cognito responde al primer ingreso con el reto **`MFA_SETUP`**, y `amazon-cognito-identity-js` invoca
+`callback.mfaSetup(...)`. `web/src/gestor/Login.tsx` implementa `totpRequired`, `mfaRequired` y
+`newPasswordRequired`, pero **no** `mfaSetup`: el ingreso muere con un `TypeError`.
+
+No había forma de rodearlo desde fuera del navegador. El cliente del pool solo habilita
+`ALLOW_USER_SRP_AUTH` y `ALLOW_REFRESH_TOKEN_AUTH`, así que `admin-initiate-auth` con contraseña no
+está disponible y no se puede obtener la sesión que `associate-software-token` necesita. Sin inscribir
+el TOTP no se entra; sin entrar no se inscribe el TOTP.
+
+Decisión: **`MfaConfiguration: 'OPTIONAL'`**, manteniendo `EnabledMfas: [SOFTWARE_TOKEN_MFA]`.
+
+Se eligió `OPTIONAL` y no `OFF` deliberadamente. Con ningún gestor inscrito el efecto práctico hoy es
+el mismo — nadie recibe el reto — pero `OPTIONAL` deja el segundo factor disponible cuenta por cuenta
+sin otro despliegue, y volver a `ON` no exige recrear el pool.
+
+**Esto es deuda de seguridad, no una decisión de diseño.** Los gestores ven datos de familias con
+recién nacidos, incluidas las notas de texto libre que la familia autorizó. `tratamiento-datos.md`
+declaraba el MFA obligatorio como medida de protección y ahora declara la excepción.
+
+Para cerrarla hay que implementar `mfaSetup` en el ingreso: llamar a `associateSoftwareToken`, mostrar
+el secreto y su QR, verificar el código de seis dígitos y recién entonces volver a `ON`. Es lo único
+que falta; el resto del flujo TOTP (`totpRequired` → `submitMfaCode`) ya está escrito y funciona.
+
+**No arranque el piloto con esto en `OPTIONAL`.**
+
+---
+
+## D-020 — El claim `cognito:groups` llega entre corchetes, y la verificación de grupo va en la entrada
+
+**Fecha:** 2026-09-01 · **Estado:** vigente · **Corrige:** D-012
+
+Un gestor que **sí** estaba en el grupo veía la lista de familias pero recibía 403 al abrir el
+detalle: `{"error":"forbidden","message":"La cuenta no pertenece al grupo de gestores"}`.
+
+Dos defectos distintos, y el segundo escondía al primero.
+
+**1. El autorizador aplana los claims multivaluados a una cadena entre corchetes.**
+
+El autorizador JWT nativo del HTTP API no entrega `cognito:groups` como arreglo. Entrega
+`"[gestores]"` —una sola cadena, con los corchetes adentro— y con dos grupos, `"[a b]"`. El parseo
+partía por espacios y comas sin quitar los corchetes, así que el grupo quedaba como `"[gestores]"` y
+no coincidía con ninguno. **Ningún gestor podía abrir el detalle de una familia.**
+
+La firma del tipo dice `Record<string, unknown>` y el código contemplaba el caso arreglo, que es el
+que nunca ocurre en producción. El parseo no tenía test: los tests de `admin` construían el `Gestor`
+ya armado y ejercían `assertIsGestor`, nunca la traducción desde los claims. La lógica correcta
+estaba probada; la traducción que la alimenta, no.
+
+El parseo se mudó a `handlers/admin/claims.ts`, puro y sin AWS, porque `index.ts` construye los
+clientes al cargar el módulo y no se puede importar desde un test. Acepta las tres formas —arreglo,
+cadena entre corchetes, cadena con comas— y `test/handlers/admin-claims.test.ts` las cubre.
+
+**2. La verificación de grupo estaba en tres rutas, no en la entrada.**
+
+`assertIsGestor` se llamaba en el detalle de familia, la respuesta a un mensaje y la exportación,
+pero **no** en `GET /familias` ni en `GET /bandeja`. Cualquier cuenta del user pool, sin pertenecer a
+ningún grupo, podía listar todas las familias con el nombre del bebé, su semana y su actividad
+reciente. Fue lo que hizo que el defecto 1 se viera como "la lista funciona pero el detalle no", en
+vez de como lo que era: nadie pasaba la verificación.
+
+Ahora la verificación es lo primero del handler, antes de leer el programa activo. Las tres llamadas
+de `logic.ts` se quedan: son la defensa que impide invocar esas funciones por otra vía.
+
+**Lección:** probar la regla de autorización no es probar la autorización. Entre el token y la regla
+hay una traducción, y ahí estaba el defecto. Cuando una verificación se repite ruta por ruta, la
+pregunta no es si cada llamada es correcta, sino cuál falta.
+
+## D-021 — El cerebro que crece: solo acumula, nunca se apaga
 
 **Fecha:** 2026-09-01 · **Estado:** vigente
 

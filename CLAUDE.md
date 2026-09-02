@@ -19,6 +19,7 @@ decisión que agregue complejidad "por si escalamos" es una decisión equivocada
 |---|---|
 | [`docs/decisiones.md`](docs/decisiones.md) | **Siempre.** Cada decisión de diseño y su motivo. Si algo parece raro, la explicación está ahí |
 | [`docs/arquitectura.md`](docs/arquitectura.md) | Antes de tocar infraestructura o el modelo de datos |
+| [`docs/diagramas.md`](docs/diagramas.md) | Para ver la forma del sistema y de los procesos en Mermaid: infraestructura, capas, despliegue, envío semanal, webhook, cola offline |
 | [`docs/00-entendimiento.md`](docs/00-entendimiento.md) | Los 14 vacíos y contradicciones de los documentos fuente. Varios siguen abiertos |
 | [`docs/indicadores.md`](docs/indicadores.md) | Antes de tocar `domain/indicators.ts` o la exportación |
 | [`docs/tratamiento-datos.md`](docs/tratamiento-datos.md) | Antes de tocar cualquier cosa que guarde datos de una familia |
