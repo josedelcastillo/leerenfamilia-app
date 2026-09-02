@@ -602,3 +602,63 @@ Tres cambios:
 
 **Lección:** un despliegue que reporta éxito y deja el sistema muerto es peor que uno que falla. La
 verificación va entre el build y el deploy, no después del incidente.
+
+---
+
+## D-019 — El cerebro que crece: solo acumula, nunca se apaga
+
+**Fecha:** 2026-09-01 · **Estado:** vigente
+
+La familia ve, en la pantalla de bitácora, un cerebro con una red de conexiones que crece con cada día
+de encuentros. Es la metáfora correcta para este programa: la lectura compartida en los primeros meses
+es literalmente construcción de conexiones neuronales, y es lo que la evidencia que cita la propuesta
+respalda.
+
+### La regla que importa más que el dibujo
+
+**Nunca decae, nunca se apaga, nunca retrocede.**
+
+Es tentador lo contrario. "Riéguelo para que no se marchite" engancha, y hay mucha app que lo hace.
+Acá sería un error, por dos razones:
+
+1. **A quién se lo estaríamos haciendo.** Una madre con un recién nacido, agotada, en el peor mes de su
+   vida para sentirse evaluada. Un cerebro que se apaga porque tuvo una mala semana es un dispositivo
+   de culpa apuntado a alguien vulnerable, y contradice el principio 3.4 del modelo operativo:
+   *"reconoce los primeros meses como período de adaptación; fortalece la confianza del cuidador...
+   con mensajes positivos"*.
+2. **Lo que le haría al dato.** Si registrar tiene costo emocional, la gente deja de registrar. Y la
+   bitácora es la fuente primaria de los indicadores del piloto: un dibujo que castiga terminaría
+   corrompiendo justo la medición que el piloto existe para hacer.
+
+El cerebro muestra **lo que esa familia construyó**, no cómo va este mes. Está garantizado por diseño,
+no por disciplina: `brainState()` es una función pura del historial, y el historial solo acumula. No
+existe un camino de código por el que algo se apague. Hay un test que lo verifica.
+
+### Qué lo hace crecer
+
+**Un día distinto con actividad de ese tipo enciende una rama.** No cada registro: días.
+
+- Coincide con el indicador de adherencia del piloto (`indicadores.md`, A1–A2).
+- Premia la constancia, que es literalmente el mensaje del programa: *"un minuto basta"*.
+- No se puede inflar registrando diez veces una tarde.
+
+Las cuatro actividades tienen color propio, así una familia que solo lee ve que le falta cantar sin que
+nadie se lo diga. La leyenda muestra los días de cada una.
+
+### Cómo está hecho
+
+**SVG inline.** Sin dependencia (regla 12), nítido a cualquier densidad, animable con CSS puro, hereda
+los tokens de color y el alto contraste que la app ya tiene, y pesa unos kilobytes que el service
+worker precachea — así que **dibuja sin señal**, que es cuando más se usa.
+
+La red **crece hacia afuera desde el centro, en orden cronológico**, y cada rama nueva se cuelga de la
+más cercana ya dibujada. Eso es lo que la hace leer como irrigación en vez de como una estrella, y es
+verdadero: la forma del cerebro es la forma de la historia real de esa familia. La geometría es
+determinista, así que una familia siempre ve el mismo cerebro.
+
+Se construye con el historial **mezclado** (servidor + cola), así que una rama aparece en el instante
+en que se registra la entrada, con o sin conexión.
+
+**Accesibilidad:** el `aria-label` dice lo mismo que el dibujo —días, conexiones, desglose por
+actividad— y hay una cifra en texto al lado. `prefers-reduced-motion` entrega el dibujo terminado sin
+animación.

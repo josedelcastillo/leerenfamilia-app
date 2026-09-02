@@ -273,6 +273,14 @@ cuando sincroniza, y nunca aparece duplicada.
 La idempotencia es estructural: el id que genera el dispositivo forma parte de la clave de ordenamiento
 (`LOG#<ts>#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer antes de escribir.
 
+### El cerebro que crece
+
+En la pantalla de bitácora, un SVG inline dibuja una red de conexiones que crece con cada día de
+encuentros, con color por tipo de actividad. **Solo acumula: nunca decae ni se apaga**, y eso está
+garantizado por diseño —es una función pura del historial, que solo crece— no por disciplina. El
+razonamiento está en `decisiones.md` D-019, y no es estético: un dibujo que castiga a una madre
+agotada terminaría corrompiendo la medición que el piloto existe para hacer.
+
 ### Nota sensible
 
 El texto libre de las notas describe la rutina doméstica de una casa con un recién nacido. Se guarda siempre,
@@ -357,7 +365,7 @@ solo el bundle, sin `node_modules`.
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
 | `npm test` (backend, sin red ni credenciales) | 376 tests, todos pasan |
-| `npm test` (web) | 26 tests, todos pasan |
+| `npm test` (web) | 45 tests, todos pasan |
 | `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |

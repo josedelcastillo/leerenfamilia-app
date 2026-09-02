@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type LogEntry } from '../shared/api.ts';
 import type { QueuedItem, QueuedKind } from '../shared/sync-queue.ts';
+import { Cerebro } from './components/Cerebro.tsx';
+import { brainState } from './components/cerebro.ts';
 import { HistorialBitacora } from './components/HistorialBitacora.tsx';
 import { mergeHistorial } from './components/historial.ts';
 import { RegistroForm } from './components/RegistroForm.tsx';
@@ -50,6 +52,10 @@ export function Bitacora({
       <p className="muted small">
         Anota los ratos que pasaste con tu bebé. Un minuto basta: lo importante es la constancia.
       </p>
+
+      {/* Built from the merged history, so it grows the instant an entry is queued — with or
+          without a signal. */}
+      <Cerebro state={brainState(entries)} />
 
       <RegistroForm
         onSubmit={async (values) => {

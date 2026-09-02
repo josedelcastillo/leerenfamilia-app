@@ -205,3 +205,82 @@ button:focus-visible, a:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
 }
+
+/* --- el cerebro que crece ------------------------------------------------ */
+/*
+ * It only ever grows. Nothing here fades, dims or empties when a family stops logging: a brain that
+ * withers after a bad week would be a guilt device pointed at someone in the hardest month of her
+ * life, and it would make logging feel expensive — which is exactly what the pilot cannot afford.
+ */
+.cerebro {
+  margin: 0 0 1rem;
+  padding: 1rem 1rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.cerebro svg { width: 100%; max-width: 17rem; height: auto; display: block; margin: 0 auto; }
+
+.cerebro__silueta path { fill: #e9f1f3; stroke: #c3d5d9; stroke-width: 1.6; stroke-linejoin: round; }
+.cerebro__silueta .cerebro__surco { fill: none; stroke: #c3d5d9; stroke-width: 1.8; stroke-linecap: round; }
+.cerebro__silueta .cerebro__tallo { fill: #dfebee; stroke: #c3d5d9; stroke-width: 1.6; }
+
+.cerebro__rama line {
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.cerebro__rama circle { fill: currentColor; }
+
+.cerebro__rama--lectura { color: #0d4754; }
+.cerebro__rama--cancion { color: #b0491f; }
+.cerebro__rama--juego { color: #1c6b3f; }
+.cerebro__rama--conversacion { color: #6b4a86; }
+
+/* Each branch draws itself outward from the one it grew from. On first paint they cascade in
+   order, so the network visibly grows the way the weeks did. */
+.cerebro__rama line { stroke-dasharray: 60; animation: cerebro-trazo 420ms ease-out both; }
+.cerebro__rama circle { animation: cerebro-brote 300ms ease-out both; }
+.cerebro__rama { animation-delay: calc(var(--orden) * 22ms); }
+.cerebro__rama line { animation-delay: calc(var(--orden) * 22ms); }
+.cerebro__rama circle { animation-delay: calc(var(--orden) * 22ms + 260ms); }
+
+/* The one just added gets a pulse of its own, so a new entry is unmistakable. */
+.cerebro--creciendo .cerebro__rama.is-newest circle {
+  animation: cerebro-pulso 1100ms 300ms ease-out both;
+}
+
+@keyframes cerebro-trazo { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes cerebro-brote { from { r: 0; } to { r: 2.4; } }
+@keyframes cerebro-pulso {
+  0% { r: 2.4; }
+  35% { r: 7; opacity: 0.55; }
+  100% { r: 3.2; opacity: 1; }
+}
+
+.cerebro__cifra { margin: 0.5rem 0 0.25rem; font-size: 0.95rem; }
+.cerebro__leyenda {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cerebro__leyenda li { display: flex; align-items: center; gap: 0.3rem; }
+.cerebro__punto { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: currentColor; }
+
+/* Someone who asked for less motion gets the finished drawing, not the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .cerebro__rama line,
+  .cerebro__rama circle,
+  .cerebro--creciendo .cerebro__rama.is-newest circle {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
