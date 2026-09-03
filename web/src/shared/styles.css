@@ -4,16 +4,37 @@
  * The reader is a caregiver with a newborn, often at night, often one-handed, often on a cheap
  * phone in bright sunlight. Every choice here follows from that: 18px base text, 3rem minimum
  * touch targets, and contrast well past WCAG AA rather than exactly at it.
+ *
+ * Palette: the Leer en Familia identity — coral wordmark, purple books, warm grey animals, pink
+ * cheeks, white ground. Two rules keep it legible in the sun:
+ *
+ *   1. The logo coral is 3.46:1 on white. That is below AA for body text and below AA for white
+ *      button labels, so it never carries text. `--coral` is the illustration colour; `--brand`
+ *      is the same hue deepened to 6.36:1 and is the only one allowed under or behind type.
+ *   2. The brand ground is white, not coral — in the identity the coral is the ink on a white
+ *      page. So the header is paper with a coral wordmark, not a coral bar. That is both more
+ *      faithful to the artwork and the reason the accessibility score holds at 100.
+ *
+ * Every value below is measured, not eyeballed; `npm run check:contrast` fails the build if any
+ * pair drops under its threshold.
  */
 :root {
-  --ink: #0d2b33;
-  --ink-soft: #40606a;
-  --paper: #fbfaf7;
-  --surface: #ffffff;
-  --brand: #0d4754;
+  /* Identity */
+  --coral: #e85c4a;        /* the wordmark coral. Illustration and fills only, never under text */
+  --coral-soft: #fdeeea;   /* coral at paper weight, for tinted surfaces */
+  --brand: #a83a28;        /* the coral deepened for type and controls — 6.36:1 on white */
   --brand-ink: #ffffff;
-  --accent: #a8451f;
-  --line: #d5dfe2;
+  --accent: #6e4e9b;       /* the purple of the books — 6.51:1 on white */
+  --accent-soft: #f1ecf7;
+  --blush: #f4a8a0;        /* the cheeks. Decorative only */
+
+  /* Ink and paper, warmed to sit with the illustration rather than fight it */
+  --ink: #2e2320;
+  --ink-soft: #6b5750;
+  --paper: #fffbf7;
+  --surface: #ffffff;
+  --line: #e6dcd6;
+
   --ok: #1c6b3f;
   --warn: #8a5a00;
 
@@ -47,14 +68,44 @@ p { margin: 0.5rem 0; }
 .small { font-size: 0.85rem; }
 
 /* --- header ------------------------------------------------------------- */
+/* Paper, not a coloured bar: in the identity the coral is ink on a white page. */
 .topbar {
-  background: var(--brand);
-  color: var(--brand-ink);
-  padding: 0.75rem var(--gap);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.7rem var(--gap) 0.6rem;
   margin: 0 calc(-1 * var(--gap));
+  border-bottom: 1px solid var(--line);
 }
-.topbar h1 { margin: 0; font-size: 1.15rem; }
-.topbar .muted { color: #bcd9e0; }
+.topbar h1 { margin: 0; font-size: 1.15rem; color: var(--brand); }
+.topbar .muted { color: var(--ink-soft); }
+
+/*
+ * The wordmark, typeset the way the logo sets it: "Nacidos" and "Leer" large, "para" small and
+ * tucked between them. System type, no webfont — a font file is a blocking download on a cheap
+ * phone, and the shape of the name carries the recognition well enough at this size.
+ */
+.marca {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin: 0;
+  color: var(--brand);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+.marca__menor {
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.marca__pais {
+  font-size: 0.62em;
+  font-weight: 700;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
 
 /* --- status banners ----------------------------------------------------- */
 .banner {
@@ -68,8 +119,8 @@ p { margin: 0.5rem 0; }
   border: 2px solid transparent;
 }
 .banner--offline { background: #fff4d6; border-color: #e0b64a; color: var(--warn); }
-.banner--pending { background: #e6f0f3; border-color: #8fb6c1; color: var(--brand); }
-.banner--error { background: #fbe7e1; border-color: #d09480; color: var(--accent); }
+.banner--pending { background: var(--coral-soft); border-color: #eab4a8; color: var(--brand); }
+.banner--error { background: #fbe7e1; border-color: #d09480; color: var(--brand); }
 
 /* --- cards -------------------------------------------------------------- */
 .card {
@@ -79,7 +130,7 @@ p { margin: 0.5rem 0; }
   padding: var(--gap);
   margin: 0.75rem 0;
 }
-.card--muted { background: #f2f5f6; }
+.card--muted { background: #faf4f0; }
 
 .placeholder-note {
   background: #fff4d6;
@@ -144,6 +195,7 @@ button:focus-visible, a:focus-visible {
 }
 .btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .btn--secondary { background: var(--surface); color: var(--brand); }
+.btn--secondary:disabled { opacity: 0.55; }
 
 /* --- lists -------------------------------------------------------------- */
 .entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
@@ -156,7 +208,7 @@ button:focus-visible, a:focus-visible {
   font-weight: 600;
   padding: 0.15rem 0.5rem;
   border-radius: 1rem;
-  background: #e6f0f3;
+  background: var(--coral-soft);
   color: var(--brand);
 }
 .tag--pending { background: #fff4d6; color: var(--warn); }
@@ -189,8 +241,8 @@ button:focus-visible, a:focus-visible {
 }
 
 .thread-reply {
-  border-left: 4px solid var(--brand);
-  background: #eef4f6;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
   padding: 0.5rem 0.75rem;
   margin: 0.75rem 0 0 0.5rem;
   border-radius: 0 var(--radius) var(--radius) 0;
@@ -222,9 +274,9 @@ button:focus-visible, a:focus-visible {
 }
 .cerebro svg { width: 100%; max-width: 17rem; height: auto; display: block; margin: 0 auto; }
 
-.cerebro__silueta path { fill: #e9f1f3; stroke: #c3d5d9; stroke-width: 1.6; stroke-linejoin: round; }
-.cerebro__silueta .cerebro__surco { fill: none; stroke: #c3d5d9; stroke-width: 1.8; stroke-linecap: round; }
-.cerebro__silueta .cerebro__tallo { fill: #dfebee; stroke: #c3d5d9; stroke-width: 1.6; }
+.cerebro__silueta path { fill: #fdeff0; stroke: #eec9c4; stroke-width: 1.6; stroke-linejoin: round; }
+.cerebro__silueta .cerebro__surco { fill: none; stroke: #eec9c4; stroke-width: 1.8; stroke-linecap: round; }
+.cerebro__silueta .cerebro__tallo { fill: #fae2e2; stroke: #eec9c4; stroke-width: 1.6; }
 
 .cerebro__rama line {
   stroke: currentColor;
@@ -234,10 +286,13 @@ button:focus-visible, a:focus-visible {
 }
 .cerebro__rama circle { fill: currentColor; }
 
-.cerebro__rama--lectura { color: #0d4754; }
-.cerebro__rama--cancion { color: #b0491f; }
-.cerebro__rama--juego { color: #1c6b3f; }
-.cerebro__rama--conversacion { color: #6b4a86; }
+/* The brand's own colour for the brand's own verb, then the purple of the books, then two
+   hues warm enough to belong beside them. The legend labels each one in words, so colour is
+   never the only thing telling them apart. */
+.cerebro__rama--lectura { color: #b8402c; }
+.cerebro__rama--cancion { color: #6e4e9b; }
+.cerebro__rama--juego { color: #2f7a55; }
+.cerebro__rama--conversacion { color: #8a5a12; }
 
 /* Each branch draws itself outward from the one it grew from. On first paint they cascade in
    order, so the network visibly grows the way the weeks did. */

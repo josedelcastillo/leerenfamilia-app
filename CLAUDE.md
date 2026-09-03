@@ -42,6 +42,7 @@ cd backend && npm run test:coverage
 
 # PWA
 cd web && npm install && npm test && npm run build
+cd web && npm run check:contrast   # falla si un par de colores baja de su umbral WCAG
 
 # Infraestructura
 sam validate --template infra/template.yaml --lint
@@ -101,10 +102,13 @@ Si necesita romper alguna, dígalo explícitamente y agregue una entrada a `docs
    gestor si la familia lo autorizó en el consentimiento.
 9. **El bundle del gestor no llega al dispositivo de una familia.** `shared/` no puede importar de
    `app/` ni de `gestor/`.
-10. **No invente contenido del programa.** Ni canciones, ni textos de libros, ni actividades: hay
+10. **El coral del logotipo (`--coral`) no toca ningún texto.** Mide 3.46:1 sobre blanco: ilegible al
+    sol en un celular barato. Para texto y controles va `--brand`, el mismo tono a 6.36:1 (D-022).
+    `npm test` lo verifica.
+11. **No invente contenido del programa.** Ni canciones, ni textos de libros, ni actividades: hay
     derechos de autor y lo define la ONG. Todo lo que hay es placeholder y está marcado como tal.
-11. **No agregue analítica de terceros.** Si hay que medir, endpoint propio contra DynamoDB.
-12. **Antes de agregar una dependencia, justifíquela en una línea** en el commit. Hoy el backend tiene
+12. **No agregue analítica de terceros.** Si hay que medir, endpoint propio contra DynamoDB.
+13. **Antes de agregar una dependencia, justifíquela en una línea** en el commit. Hoy el backend tiene
     tres (SDK de AWS y esbuild) y la web cuatro.
 
 ## Estado

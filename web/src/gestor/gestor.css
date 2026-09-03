@@ -7,7 +7,7 @@
 .gestor table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .gestor th, .gestor td { padding: 0.5rem 0.6rem; text-align: left; border-bottom: 1px solid var(--line); }
 .gestor th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
-.gestor tbody tr:hover { background: #f2f7f8; }
+.gestor tbody tr:hover { background: #faf4f0; }
 .gestor td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
@@ -15,8 +15,8 @@
 .row-link { background: none; border: none; font: inherit; color: var(--brand); text-decoration: underline; cursor: pointer; padding: 0; }
 
 .pill { display: inline-block; padding: 0.1rem 0.45rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; }
-.pill--alert { background: #fbe7e1; color: var(--accent); }
-.pill--quiet { background: #eef2f3; color: var(--ink-soft); }
+.pill--alert { background: #fbe7e1; color: var(--brand); }
+.pill--quiet { background: #f4efec; color: var(--ink-soft); }
 .pill--ok { background: #e2f0e8; color: var(--ok); }
 
 .toolbar { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
@@ -30,7 +30,7 @@
 
 .thread { border-left: 3px solid var(--line); padding-left: 0.75rem; margin: 0.5rem 0 0 0.5rem; }
 .consent-warning {
-  background: #eef2f3; border-left: 4px solid var(--ink-soft);
+  background: #f4efec; border-left: 4px solid var(--ink-soft);
   padding: 0.5rem 0.75rem; font-size: 0.85rem; color: var(--ink-soft);
   border-radius: 0 var(--radius) var(--radius) 0; margin: 0.5rem 0;
 }

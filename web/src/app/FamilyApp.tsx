@@ -33,7 +33,11 @@ export default function FamilyApp() {
   return (
     <>
       <header className="topbar">
-        <h1>Nacidos para Leer Perú</h1>
+        {/* The wordmark's own arrangement: the two big words, "para" small between them. */}
+        <h1 className="marca">
+          Nacidos <span className="marca__menor">para</span> Leer{' '}
+          <span className="marca__pais">PERÚ</span>
+        </h1>
         <p className="muted small" style={{ margin: 0 }}>
           Leer en Familia
         </p>

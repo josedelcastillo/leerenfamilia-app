@@ -1,15 +1,16 @@
 """
-Generates PLACEHOLDER app icons.
+Generates PLACEHOLDER app icons in the Leer en Familia palette.
 
-TODO: ícono real pendiente de Leer en Familia. This draws a neutral open-book mark so the PWA is
-installable and passes icon validation; it is not the organisation's logo and must be replaced
-before anything reaches a family.
+TODO: el logo real (el mapache con el libro) sigue pendiente, y hace falta en vector — un PNG no
+escala a los tamaños que pide un launcher. Esto dibuja un libro abierto neutro sobre el coral de
+la marca para que la PWA sea instalable y pase la validación de íconos. Es del color correcto,
+pero NO es el logo de la organización y debe reemplazarse antes de que esto llegue a una familia.
 
     python3 web/scripts/generate-icons.py
 """
 from PIL import Image, ImageDraw
 
-BACKGROUND = (13, 71, 84)   # deep teal, also the manifest theme colour
+BACKGROUND = (232, 92, 74)  # --coral, the wordmark colour
 INK = (255, 255, 255)
 OUT = "web/public"
 

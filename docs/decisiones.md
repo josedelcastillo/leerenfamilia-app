@@ -738,3 +738,53 @@ en que se registra la entrada, con o sin conexión.
 **Accesibilidad:** el `aria-label` dice lo mismo que el dibujo —días, conexiones, desglose por
 actividad— y hay una cifra en texto al lado. `prefers-reduced-motion` entrega el dibujo terminado sin
 animación.
+
+---
+
+## D-022 — La identidad de Leer en Familia, y por qué el coral del logotipo no toca ningún texto
+
+**Contexto.** Hasta ahora la app usaba un teal (`#0d4754`) que yo inventé como relleno. Leer en Familia
+entregó la identidad real: mapaches dibujados a mano en gris cálido, mejillas rosadas, libros morados,
+y el logotipo **"Nacidos para Leer" en coral sobre fondo blanco**.
+
+**Decisión.** La paleta de la app es esa, con una regla que la atraviesa entera:
+
+| Token | Valor | Para qué |
+|---|---|---|
+| `--coral` | `#e85c4a` | El coral del logotipo. **Solo ilustración y rellenos.** Nunca debajo de texto |
+| `--brand` | `#a83a28` | El mismo tono profundizado. Lo único que puede llevar o sostener texto |
+| `--accent` | `#6e4e9b` | El morado de los libros. Foco, hilos de respuesta, segunda voz |
+| `--blush` | `#f4a8a0` | Las mejillas. Decorativo |
+| `--ink` / `--ink-soft` | `#2e2320` / `#6b5750` | Tinta cálida, no gris azulado |
+| `--paper` / `--surface` | `#fffbf7` / `#ffffff` | Papel cálido |
+
+**Por qué el coral se parte en dos.** El coral del logotipo mide **3.46:1 sobre blanco**. Eso está por
+debajo de AA para texto corrido (4.5:1) y por debajo de AA para una etiqueta blanca sobre un botón
+coral. Se ve bien en una laptop y se vuelve ilegible en un celular barato al sol de Lima, que es
+exactamente dónde se usa esta app. `--brand` es el mismo tono a 6.36:1.
+
+Esto no es una nota en un documento de diseño: `web/scripts/check-contrast.mjs` lee los tokens reales
+de `styles.css`, mide cada par que la interfaz realmente pinta y **falla** si alguno baja de su umbral.
+Corre dentro de `npm test`. También falla si alguien "arregla" el problema oscureciendo `--coral`, que
+sería perder la identidad para ganar un número.
+
+**Por qué la cabecera es papel y no una barra coral.** En la identidad el coral es **la tinta sobre una
+página blanca**; una barra coral no existe en el material que entregaron. Así que la cabecera es papel
+con el logotipo en coral. Es a la vez más fiel al arte y la razón por la que la accesibilidad sigue en
+100.
+
+**El logotipo de la cabecera es tipografía, no el logo.** Hoy es el nombre compuesto como lo compone la
+marca —"Nacidos" y "Leer" grandes, "para" chico en medio— en tipografía del sistema. Sin webfont: un
+archivo de fuente es una descarga bloqueante en un celular barato, y a este tamaño la forma del nombre
+alcanza. Cuando llegue el logo real **en vector**, entra como imagen y ahí sí puede ir en `--coral`: la
+norma de contraste de WCAG exceptúa explícitamente a los logotipos. La sustitución tipográfica no está
+exceptuada, y por eso va en `--brand`.
+
+**El cerebro.** La silueta pasó a un rosa de mejilla (`#fdeff0` con borde `#eec9c4`) y las cuatro ramas
+a coral, morado, verde y ocre: el color de la marca para el verbo de la marca, el morado de los libros
+para las canciones, y dos tonos que aguantan al lado. La leyenda nombra cada actividad en palabras, así
+que el color nunca es lo único que las distingue.
+
+**Lo que sigue pendiente.** Los íconos de la PWA son todavía el libro genérico de relleno, ahora sobre
+el coral correcto. Hace falta el logo **en vector**: un PNG no escala a los tamaños que pide un
+launcher. Sigue listado como bloqueante en el runbook.

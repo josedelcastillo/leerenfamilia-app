@@ -36,7 +36,10 @@ export default function ManagerApp() {
     <>
       <header className="topbar">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
-          <h1>Nacidos para Leer Perú — Gestión</h1>
+          <h1 className="marca">
+            Nacidos <span className="marca__menor">para</span> Leer{' '}
+            <span className="marca__pais">GESTIÓN</span>
+          </h1>
           <button
             type="button"
             className="chip"

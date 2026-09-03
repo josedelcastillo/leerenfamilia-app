@@ -275,7 +275,7 @@ No es una lista de mejoras. Es lo que impide operar de verdad:
 | Pendiente | Fase / decisión |
 |---|---|
 | Contenido real de las 8 semanas | Leer en Familia. Hoy todo es placeholder |
-| Íconos y logo reales | Leer en Familia. Hoy son placeholder |
+| Logo real **en vector** | Leer en Familia. La paleta de la marca ya está aplicada (D-022), pero los íconos de la PWA siguen siendo el libro genérico de relleno sobre el coral correcto. Un PNG no escala a los tamaños de un launcher: hace falta SVG |
 | Texto de consentimiento revisado por un abogado | `tratamiento-datos.md` |
 | Endpoint de supresión automatizado | Obligación legal, hoy manual |
 | WABA y plantillas aprobadas | Meta |
