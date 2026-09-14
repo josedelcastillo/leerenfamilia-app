@@ -181,14 +181,16 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
           TableName: this.#table,
           Key: { PK: KEY.family(familyId), SK: SK.meta },
           UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
-          // ISO-8601 UTC strings from toISOString() order correctly as strings.
+          // ISO-8601 UTC strings from toISOString() order correctly as strings. The tie rule is in
+          // the operator, not in a comparison between two values, which DynamoDB may not accept:
+          // a revocation also wins at equal time (<=), a grant only when strictly newer (<).
           ConditionExpression:
-            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at' +
-            ' OR (notesConsentAt = :at AND :value = :false))',
+            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt ' +
+            (change.notesAuthorized ? '<' : '<=') +
+            ' :at)',
           ExpressionAttributeValues: {
             ':value': change.notesAuthorized,
             ':at': change.at,
-            ':false': false,
           },
         }),
       );

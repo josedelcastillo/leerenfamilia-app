@@ -61,11 +61,26 @@ describe('FamilyDataStore.putNotesConsent', () => {
 
     const update = stub.sent[1]!.input;
     assert.deepEqual(update['Key'], { PK: 'FAMILY#fam-1', SK: 'META' });
-    assert.ok(String(update['ConditionExpression']).includes('notesConsentAt < :at'));
-    assert.ok(String(update['ConditionExpression']).includes('(notesConsentAt = :at AND :value = :false)'));
+    // A grant moves the flag only when strictly newer.
+    assert.equal(
+      update['ConditionExpression'],
+      'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at)',
+    );
     assert.equal(update['ExpressionAttributeValues'][':at'], CHANGE.at);
     assert.equal(update['ExpressionAttributeValues'][':value'], true);
-    assert.equal(update['ExpressionAttributeValues'][':false'], false);
+  });
+
+  test('a revocation also wins a tie: its condition accepts an equal time', async () => {
+    const stub = new StubDoc();
+    await storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false });
+
+    const update = stub.sent[1]!.input;
+    assert.equal(
+      update['ConditionExpression'],
+      'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt <= :at)',
+    );
+    // No comparison between two values: every operand of the condition is a path or one value.
+    assert.equal(Object.keys(update['ExpressionAttributeValues']).sort().join(','), ':at,:value');
   });
 
   test('swallows a failed condition: the change is stale, not an error', async () => {

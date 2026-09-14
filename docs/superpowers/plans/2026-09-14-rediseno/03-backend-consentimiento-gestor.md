@@ -263,11 +263,26 @@ describe('FamilyDataStore.putNotesConsent', () => {
 
     const update = stub.sent[1]!.input;
     assert.deepEqual(update['Key'], { PK: 'FAMILY#fam-1', SK: 'META' });
-    assert.ok(String(update['ConditionExpression']).includes('notesConsentAt < :at'));
-    assert.ok(String(update['ConditionExpression']).includes('(notesConsentAt = :at AND :value = :false)'));
+    // A grant moves the flag only when strictly newer.
+    assert.equal(
+      update['ConditionExpression'],
+      'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at)',
+    );
     assert.equal(update['ExpressionAttributeValues'][':at'], CHANGE.at);
     assert.equal(update['ExpressionAttributeValues'][':value'], true);
-    assert.equal(update['ExpressionAttributeValues'][':false'], false);
+  });
+
+  test('a revocation also wins a tie: its condition accepts an equal time', async () => {
+    const stub = new StubDoc();
+    await storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false });
+
+    const update = stub.sent[1]!.input;
+    assert.equal(
+      update['ConditionExpression'],
+      'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt <= :at)',
+    );
+    // No comparison between two values: every operand of the condition is a path or one value.
+    assert.equal(Object.keys(update['ExpressionAttributeValues']).sort().join(','), ':at,:value');
   });
 
   test('swallows a failed condition: the change is stale, not an error', async () => {
@@ -407,13 +422,15 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
           Key: { PK: KEY.family(familyId), SK: SK.meta },
           UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
           // ISO-8601 UTC strings from toISOString() order correctly as strings.
+          // The tie rule is in the operator, not in a comparison between two values, which DynamoDB
+          // may not accept: a revocation also wins at equal time (<=), a grant only when newer (<).
           ConditionExpression:
-            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at' +
-            ' OR (notesConsentAt = :at AND :value = :false))',
+            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt ' +
+            (change.notesAuthorized ? '<' : '<=') +
+            ' :at)',
           ExpressionAttributeValues: {
             ':value': change.notesAuthorized,
             ':at': change.at,
-            ':false': false,
           },
         }),
       );
