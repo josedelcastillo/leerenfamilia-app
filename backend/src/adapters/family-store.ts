@@ -269,6 +269,8 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
         anchorDate: record.anchorDate,
         anchorPolicy: record.anchorPolicy,
         freeTextNotesAuthorized: record.freeTextNotesAuthorized,
+        // The enrolment consent is the first change: a PWA change older than it must not win (D-025).
+        notesConsentAt: record.enrolledAt,
         enrolledAt: record.enrolledAt,
       },
       {
