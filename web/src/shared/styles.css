@@ -192,6 +192,9 @@ img { max-width: 100%; }
 .opcion:has(input:checked) { border-color: var(--coral); box-shadow: inset 0 0 0 1px rgba(218, 95, 75, 0.18); color: var(--ink); }
 .opcion:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
 
+/* Fallback where :has() is unsupported: focus must never be invisible. */
+.opcion:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+
 /* Consent row with a 26px box. */
 .consentimiento {
   display: flex; gap: 14px; align-items: flex-start;
@@ -273,7 +276,7 @@ textarea {
 .confirmado { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 700; }
 .confirmado__check {
   flex: none; width: 34px; height: 34px; border-radius: 10px;
-  display: grid; place-items: center; background: var(--ok); color: var(--coral-ink); font-size: 19px;
+  display: grid; place-items: center; background: var(--ok); color: #ffffff; font-size: 19px;
 }
 .banda-estado {
   display: flex; gap: 12px; padding: 16px 18px; border-radius: var(--radius-control);
@@ -431,6 +434,9 @@ textarea {
 .marca__menor, .marca__pais { font-size: 0.62em; }
 .banner { display: flex; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius); margin: 0.75rem 0; font-size: 0.9rem; border: 1px solid var(--line-strong); background: var(--surface); }
 .banner--error { color: var(--alert); }
+.banner--offline { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
+.banner--pending { color: var(--accent); }
+.btn--secondary { min-height: var(--touch); background: var(--paper); color: var(--ink); border: 1.5px solid var(--line-strong); font-size: 17px; font-weight: 400; }
 .card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--gap); margin: 0.75rem 0; }
 .card--muted { background: var(--surface); }
 .entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }

@@ -253,6 +253,7 @@ const pairs = [
   ['morado de etiqueta sobre papel', t['morado-text'], t.paper, AA_TEXT],
   ['alerta sobre papel', t.alert, t.paper, AA_TEXT],
   ['sincronizado sobre papel', t.ok, t.paper, AA_TEXT],
+  ['check de registrado (blanco sobre ok)', WHITE, t.ok, AA_TEXT],
   ['aviso de placeholder', t.warn, t['warn-soft'], AA_TEXT],
   ['chip activo (blanco sobre tinta)', WHITE, t.ink, AA_TEXT],
   ['anillo de foco sobre papel', t.accent, t.paper, AA_LARGE],
