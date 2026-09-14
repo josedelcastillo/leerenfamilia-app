@@ -13,6 +13,7 @@ import type { WeekContent } from '../content/weeks.ts';
 import type {
   FamilyContext,
   FamilyStore,
+  NotesConsentChange,
   ResourceAccess,
 } from '../handlers/family-ports.ts';
 import type {
@@ -134,6 +135,46 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
           msisdn,
           ...access,
         },
+      }),
+    );
+  }
+
+  /**
+   * The proof of the change and the flag it changes land together or not at all (D-025). The flag is
+   * what `openFamilyDetail` and the export read, so revoking hides every note already sent — the
+   * filter is on read (rule 8), which is what makes a revocation retroactive for free.
+   */
+  async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
+    await this.#doc.send(
+      new TransactWriteCommand({
+        TransactItems: [
+          {
+            Put: {
+              TableName: this.#table,
+              Item: {
+                PK: KEY.family(familyId),
+                SK: SK.consentChange(change.at, change.clientId),
+                entity: 'consent',
+                familyId,
+                channel: 'pwa',
+                version: change.version,
+                acceptedAt: change.at,
+                freeTextNotesAuthorized: change.notesAuthorized,
+                changedBy: change.changedBy,
+                clientId: change.clientId,
+              },
+            },
+          },
+          {
+            Update: {
+              TableName: this.#table,
+              Key: { PK: KEY.family(familyId), SK: SK.meta },
+              UpdateExpression: 'SET freeTextNotesAuthorized = :value',
+              ConditionExpression: 'attribute_exists(PK)',
+              ExpressionAttributeValues: { ':value': change.notesAuthorized },
+            },
+          },
+        ],
       }),
     );
   }

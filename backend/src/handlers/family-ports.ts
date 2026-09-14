@@ -36,6 +36,18 @@ export interface StoredFeedback {
   readonly createdAt: string;
 }
 
+/** The family changing whether the team may read its notes, from the privacy screen (D-025). */
+export interface NotesConsentChange {
+  readonly clientId: string;
+  readonly notesAuthorized: boolean;
+  /** When the caregiver flipped the switch, from the device's clock. */
+  readonly at: string;
+  /** Version of the text shown on the privacy screen when the change was made. */
+  readonly version: string;
+  /** The caregiver whose signed token sent the change. */
+  readonly changedBy: string;
+}
+
 export interface FamilyStore {
   getContext(familyId: string): Promise<FamilyContext | null>;
   getWeeks(programId: string, weeks: readonly number[]): Promise<WeekContent[]>;
@@ -44,4 +56,5 @@ export interface FamilyStore {
   putFeedback(familyId: string, programId: string, feedback: Feedback): Promise<void>;
   listFeedback(familyId: string): Promise<Feedback[]>;
   listLogEntries(familyId: string): Promise<LogEntry[]>;
+  putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void>;
 }

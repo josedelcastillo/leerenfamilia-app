@@ -5,7 +5,12 @@ import { DomainError } from '../../src/domain/errors.ts';
 import type { Feedback } from '../../src/domain/feedback.ts';
 import type { LogEntry } from '../../src/domain/log-entry.ts';
 import { PLACEHOLDER_WEEKS, type WeekContent } from '../../src/content/weeks.ts';
-import type { FamilyContext, FamilyStore, ResourceAccess } from '../../src/handlers/family-ports.ts';
+import type {
+  FamilyContext,
+  FamilyStore,
+  NotesConsentChange,
+  ResourceAccess,
+} from '../../src/handlers/family-ports.ts';
 import { getContent } from '../../src/handlers/content/logic.ts';
 import { applySync, listOwnLog, type SyncItem } from '../../src/handlers/tracking/logic.ts';
 import { listOwnFeedback, submitFeedback, MAX_FEEDBACK_LENGTH } from '../../src/handlers/feedback/logic.ts';
@@ -42,6 +47,7 @@ class FakeFamilyStore implements FamilyStore {
   feedback: Feedback[] = [];
   requestedWeeks: number[] = [];
   failNextWrite = false;
+  consentChanges: NotesConsentChange[] = [];
 
   async getContext(): Promise<FamilyContext | null> {
     return this.context;
@@ -69,6 +75,10 @@ class FakeFamilyStore implements FamilyStore {
   }
   async listLogEntries(): Promise<LogEntry[]> {
     return this.logs;
+  }
+  async putNotesConsent(_familyId: string, change: NotesConsentChange): Promise<void> {
+    this.consentChanges = [...this.consentChanges.filter((c) => c.clientId !== change.clientId), change];
+    this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
   }
 }
 
@@ -252,7 +262,7 @@ describe('historial propio de la bitácora', () => {
       { clientId: 'b', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'cancion', minutes: 5 } as SyncItem,
     ], TODAY, NOW);
 
-    const { entries } = await listOwnLog(store, store.context);
+    const { entries } = await listOwnLog(store, store.context, MOTHER);
     assert.deepEqual(entries.map((e) => e.date), ['2026-09-19', '2026-09-17']);
   });
 
@@ -263,19 +273,19 @@ describe('historial propio de la bitácora', () => {
       { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, note: 'le gustó' } as SyncItem,
     ], TODAY, NOW);
 
-    const { entries } = await listOwnLog(store, store.context);
+    const { entries } = await listOwnLog(store, store.context, MOTHER);
     assert.equal(entries[0]?.note, 'le gustó');
   });
 
   test('una familia sin registros recibe una lista vacía, no un error', async () => {
-    assert.deepEqual((await listOwnLog(store, store.context)).entries, []);
+    assert.deepEqual((await listOwnLog(store, store.context, MOTHER)).entries, []);
   });
 
   test('conserva el recurso asociado, para poder mostrar de qué actividad vino', async () => {
     await applySync(store, store.context, MOTHER, [
       { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, resourceId: 's03-lectura' } as SyncItem,
     ], TODAY, NOW);
-    assert.equal((await listOwnLog(store, store.context)).entries[0]?.resourceId, 's03-lectura');
+    assert.equal((await listOwnLog(store, store.context, MOTHER)).entries[0]?.resourceId, 's03-lectura');
   });
 });
 
@@ -455,5 +465,57 @@ describe('registro por QR', () => {
     const serialized = JSON.stringify(record);
     assert.equal(serialized.includes('12345678'), false);
     assert.equal(serialized.includes('Siempre Viva'), false);
+  });
+});
+
+describe('consentimiento de notas desde la PWA (D-025)', () => {
+  function consentItem(overrides: Record<string, unknown> = {}): SyncItem {
+    return {
+      clientId: 'c-1',
+      kind: 'consentimiento',
+      notesAuthorized: true,
+      at: '2026-09-20T13:00:00.000Z',
+      version: 'borrador-0',
+      ...overrides,
+    } as SyncItem;
+  }
+
+  test('guarda el cambio con quién lo hizo y cuándo, y cambia el permiso', async () => {
+    const [result] = await applySync(store, store.context, MOTHER, [consentItem()], TODAY, NOW);
+    assert.equal(result?.status, 'ok');
+    assert.equal(store.context.freeTextNotesAuthorized, true);
+    assert.deepEqual(store.consentChanges, [{
+      clientId: 'c-1', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z',
+      version: 'borrador-0', changedBy: MOTHER,
+    }]);
+  });
+
+  test('revocar funciona igual, y el historial propio devuelve el estado nuevo', async () => {
+    store.context = { ...store.context, freeTextNotesAuthorized: true };
+    await applySync(store, store.context, MOTHER, [consentItem({ notesAuthorized: false })], TODAY, NOW);
+    assert.equal((await listOwnLog(store, store.context, MOTHER)).notesAuthorized, false);
+  });
+
+  test('reenviar el mismo cambio no crea un segundo registro', async () => {
+    await applySync(store, store.context, MOTHER, [consentItem()], TODAY, NOW);
+    await applySync(store, store.context, MOTHER, [consentItem()], TODAY, NOW);
+    assert.equal(store.consentChanges.length, 1);
+  });
+
+  test('rechaza un cambio sin booleano, sin fecha válida o sin versión', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'a', notesAuthorized: 'si' }),
+      consentItem({ clientId: 'b', at: 'ayer' }),
+      consentItem({ clientId: 'c', version: '' }),
+    ], TODAY, NOW);
+    assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado', 'rechazado']);
+    assert.equal(store.consentChanges.length, 0);
+  });
+});
+
+describe('historial propio: estado para la pantalla de privacidad', () => {
+  test('devuelve la relación declarada por el cuidador de este teléfono', async () => {
+    assert.equal((await listOwnLog(store, store.context, MOTHER)).relation, 'mama');
+    assert.equal((await listOwnLog(store, store.context, FATHER)).relation, null);
   });
 });

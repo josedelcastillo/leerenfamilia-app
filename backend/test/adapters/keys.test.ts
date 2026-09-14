@@ -53,6 +53,11 @@ describe('key layout', () => {
       GSI1.feedbackByStatus('p1', 'activa'),
     );
   });
+
+  test('a consent change carries its client id, so a replay overwrites it', () => {
+    assert.equal(SK.consentChange('2026-09-20T13:00:00.000Z', 'c-1'), 'CONSENT#2026-09-20T13:00:00.000Z#c-1');
+    assert.ok(SK.consentChange('x', 'y').startsWith('CONSENT#'));
+  });
 });
 
 describe('ttlSeconds', () => {

@@ -20,6 +20,9 @@ export const SK = {
   dedupe: 'DEDUPE',
   caregiver: (msisdn: string) => `CAREGIVER#${msisdn}`,
   consent: (isoTs: string) => `CONSENT#${isoTs}`,
+  // A change made from the PWA (D-025). Same CONSENT# prefix as the enrolment record, plus the
+  // client id so that replaying the queued change rewrites it instead of adding a second proof.
+  consentChange: (isoTs: string, clientId: string) => `CONSENT#${isoTs}#${clientId}`,
   // The client-generated id is part of the sort key on everything the offline queue writes.
   // That is what makes a replayed flush overwrite instead of duplicating, with no read first,
   // while the leading timestamp keeps the partition in chronological order.
