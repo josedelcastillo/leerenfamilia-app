@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build output
+dist/
+build/
+.aws-sam/
+*.tsbuildinfo
+
+# Secrets and local configuration — nothing here may ever be committed.
+# Runtime credentials live in SSM Parameter Store SecureString, never in the repo.
+.env
+.env.*
+!.env.example
+samconfig.toml
+samconfig.yaml
+*.pem
+*.key
+*.p12
+credentials
+.aws/
+
+# Test and tooling artifacts
+coverage/
+.vite/
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

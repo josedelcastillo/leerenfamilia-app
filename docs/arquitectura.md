@@ -1,0 +1,374 @@
+# Arquitectura
+
+Estado: **fase 8, cerrada**. Todo el software construido y probado, y la documentación completa. Lo que falta antes de operar de verdad está al final de `runbook.md`.
+
+## Forma general
+
+```
+Familia (WhatsApp) ──────────────────────────────────────────┐
+                                                             │
+QR clínica ──> CloudFront ──┬── /*      ──> S3 (PWA)         │
+                            │                                │
+                            └── /api/*  ──> HTTP API         │
+                                              │              │
+      ┌───────────┬───────────┬───────────┬───┴──────┐       │
+      ▼           ▼           ▼           ▼          ▼       │
+ fn-register  fn-content  fn-tracking fn-feedback fn-admin    │
+      │           │           │           │          │       │
+      └───────────┴───────────┴───────────┴──────────┴───────┤
+                                                             ▼
+EventBridge Scheduler ──> fn-weekly-send ──────────> DynamoDB (tabla única)
+Meta Cloud API ──webhook──> fn-wa-webhook ──────────────┘
+Cognito User Pool ──JWT──> solo /api/gestor/*
+```
+
+Siete Lambdas, una tabla, un bucket, una distribución, un user pool.
+
+**La API va por detrás de CloudFront, no en su propio dominio.** El mismo origen sirve la PWA y `/api/*`, así
+que el navegador nunca hace preflight CORS: una ida y vuelta menos en cada escritura, que es justo lo que
+importa con la conectividad de las familias objetivo. Cuesta lo mismo (una distribución, ya necesaria) y deja
+un solo dominio que configurar.
+
+## Las siete Lambdas
+
+| Función | Ruta | Autenticación | Fase |
+|---|---|---|---|
+| `fn-register` | `POST /api/registro` | ninguna (flujo del QR) | 1 |
+| `fn-content` | `GET /api/contenido/{proxy+}` | token de familia | 5 |
+| `fn-tracking` | `POST /api/seguimiento/{proxy+}` | token de familia | 5 |
+| `fn-feedback` | `GET·POST /api/feedback` | token de familia | 5 |
+| `fn-admin` | `ANY /api/gestor/{proxy+}` | **JWT de Cognito** | 6 |
+| `fn-weekly-send` | EventBridge Scheduler | — | 4 |
+| `fn-wa-webhook` | `GET·POST /api/whatsapp/webhook` | firma HMAC de Meta | 3 |
+
+Todas arm64, Node.js 22, ESM, bundle de esbuild. Cada una con su log group propio y `RetentionInDays: 14`.
+
+La respuesta del gestor a un feedback vive dentro de `fn-admin`; ver `decisiones.md` D-004.
+
+## Modelo de datos
+
+Tabla única, `PK`/`SK`, `PAY_PER_REQUEST`, un GSI.
+
+| Entidad | PK | SK | GSI1PK | GSI1SK |
+|---|---|---|---|---|
+| Programa | `PROGRAM#<pid>` | `META` | — | — |
+| Contenido | `PROGRAM#<pid>` | `CONTENT#<01..08>` | — | — |
+| Familia | `FAMILY#<fid>` | `META` | `PROGRAM#<pid>#STATUS#<estado>` | `<anchor_date>#<fid>` |
+| Cuidador | `FAMILY#<fid>` | `CAREGIVER#<msisdn>` | `MSISDN#<msisdn>` | `FAMILY#<fid>` |
+| Bebé | `FAMILY#<fid>` | `BABY` | — | — |
+| Consentimiento | `FAMILY#<fid>` | `CONSENT#<iso_ts>` | — | — |
+| Acceso a recurso | `FAMILY#<fid>` | `ACCESS#<iso_ts>#<rid>` | — | — |
+| Bitácora | `FAMILY#<fid>` | `LOG#<iso_ts>` | — | — |
+| Feedback | `FAMILY#<fid>` | `FEEDBACK#<iso_ts>` | `PROGRAM#<pid>#FEEDBACK#<estado>` | `<iso_ts>#<fid>` |
+| Envío | `FAMILY#<fid>` | `DELIVERY#<iso_week>` | — | — |
+| Auditoría gestor | `AUDIT#<yyyy-mm>` | `<iso_ts>#<gestor_sub>` | — | — |
+| Dedup de WhatsApp | `WAMSG#<message_id>` | `DEDUPE` | — | — |
+
+Todo lo que cuelga de una familia comparte partición, así que la vista de detalle del gestor es **un solo
+Query** y el borrado por derecho de supresión es un Query más un BatchWrite sobre esa partición.
+
+### Por qué un solo GSI alcanza para tres patrones
+
+El encargo pide un GSI para las consultas del gestor y justificar cualquier adicional. No hace falta ninguno
+adicional: el mismo índice sirve tres accesos que no comparten forma de clave pero sí de índice.
+
+1. **Familias por estado**, ordenadas por fecha de ancla — listado del gestor.
+2. **Feedback por estado**, ordenado por fecha — bandeja unificada, filtro por `abierto`.
+3. **Teléfono → familia** — este no estaba en el encargo y es obligatorio: cuando entra un mensaje de
+   WhatsApp, `fn-wa-webhook` solo tiene el número E.164 del remitente y necesita resolver de qué familia y de
+   qué cuidador se trata. Sin este acceso habría que escanear la tabla en cada mensaje entrante.
+
+### TTL
+
+El atributo `ttl` gobierna dos cosas, y el borrado por TTL no se cobra:
+
+- **Auditoría del gestor**: 12 meses, el plazo de retención de la sección 8 del encargo.
+- **Dedup de mensajes de WhatsApp**: unos días bastan; Meta no reintenta más allá de eso.
+
+Nada más lleva TTL. La bitácora, el feedback y los datos de la familia se borran por acción explícita
+(derecho de supresión), nunca por vencimiento silencioso.
+
+### Retención de la tabla
+
+`DeletionPolicy: Retain` y `UpdateReplacePolicy: Retain`. La tabla guarda la única copia de los datos del
+piloto, incluidos datos de menores; un `sam delete` no puede ser lo que los destruya. El nombre de la tabla
+lo genera CloudFormation, así que un stack nuevo no choca con la tabla retenida del anterior.
+
+PITR queda apagado por defecto (parámetro `EnablePointInTimeRecovery`) para sostener la meta de US$0. Se
+cuantifica en `costos.md`; vale la pena reconsiderarlo cuando haya familias reales cargadas.
+
+## Autenticación
+
+**Familia: sin login.** El enlace que llega por WhatsApp lleva un token HMAC firmado con
+`family_id` + `caregiver_msisdn` + `exp`, validado dentro de cada Lambda de familia. Identifica al cuidador,
+no solo a la familia, porque hace falta saber si la bitácora la llenó la madre o el padre. Vence a los 90
+días y se renueva en cada envío semanal.
+
+No se usa un autorizador Lambda: sería una octava función y una invocación extra por request. La validación
+va en código compartido dentro de cada handler.
+
+**Gestor: Cognito.** User pool tier Lite, MFA TOTP **opcional** (era obligatorio; ver D-019), sin auto-registro, contraseñas de 12
+caracteres con las cuatro clases, un solo grupo `gestores`, autorizador JWT nativo del HTTP API. Verificación
+de costo y de por qué TOTP y no SMS: `decisiones.md` D-005.
+
+## Secretos
+
+CloudFormation **no puede crear parámetros `SecureString`**, así que el template no los crea: los declara por
+referencia y otorga permiso de lectura sobre el prefijo. Se crean fuera de banda una sola vez (queda en el
+runbook de la fase 8), bajo `/nplp/<stack-name>/`:
+
+| Parámetro | Uso |
+|---|---|
+| `WA_PHONE_NUMBER_ID` | Graph API |
+| `WA_ACCESS_TOKEN` | Graph API |
+| `WA_APP_SECRET` | validación de `X-Hub-Signature-256` |
+| `WA_VERIFY_TOKEN` | handshake `hub.challenge` |
+| `APP_TOKEN_SECRET` | clave HMAC de los tokens de familia |
+
+Se leen en cold start y se cachean en memoria. Nunca como variable de entorno en texto plano, nunca en el
+repositorio. Las Lambdas tienen `ssm:GetParameter*` sobre ese prefijo y `kms:Decrypt` sobre
+`alias/aws/ssm`, nada más.
+
+## Hosting de la PWA
+
+Bucket privado, sin acceso público, cifrado SSE-S3, `BucketOwnerEnforced`. CloudFront llega con Origin
+Access Control (SigV4); la política del bucket solo acepta al servicio de CloudFront con `SourceArn` de esta
+distribución.
+
+Las rutas del cliente se reescriben a `index.html` con una **CloudFront Function** en viewer-request,
+asociada **solo al comportamiento de S3**. Es deliberado: `CustomErrorResponses` es una configuración de
+distribución completa, así que mapear 403 → `index.html` habría convertido un 401 o un 403 legítimo de la API
+en una página HTML con status 200, escondiendo fallos de autenticación. La función se cobra recién a partir
+de 2 M invocaciones al mes.
+
+Sin `Aliases` y sin certificado ACM: el stack funciona sobre el dominio `*.cloudfront.net`. Si más adelante
+hay dominio propio, se apunta un CNAME desde el registrador existente y se evita la hosted zone de Route 53.
+
+## Separación de bundles en la PWA
+
+Las dos superficies se parten en el entry point con `lazy()`, antes de cualquier router. El build produce
+`FamilyApp` y `ManagerApp` como chunks separados: **el dispositivo de una familia nunca descarga el bundle
+del gestor.** `shared/` no puede importar de `app/` ni de `gestor/`; esa flecha en un solo sentido es lo que
+sostiene la separación.
+
+## Capas del backend
+
+```
+handlers/   entrada y salida HTTP, nada de reglas de negocio
+  ↓
+domain/     lógica pura — sin AWS SDK, sin red, sin reloj a nivel de módulo
+  ↑
+adapters/   DynamoDB, SSM, proveedor de WhatsApp, Cognito
+```
+
+`domain/` no importa de `adapters/` ni de `handlers/`. Es la capa que sostiene los indicadores del piloto y
+la única con exigencia de cobertura seria. Sus tests corren con `node --test`, sin red y sin credenciales.
+
+### Módulos de dominio (fase 2)
+
+| Módulo | Responsabilidad |
+|---|---|
+| `dates.ts` | Fecha calendario `YYYY-MM-DD` como tipo propio, días entre fechas, semana ISO |
+| `schedule.ts` | Política de ancla, semana del programa, semanas desbloqueadas |
+| `eligibility.ts` | Si una familia recibe envío hoy, a quiénes, y por qué no si no |
+| `service-window.ts` | Ventana de servicio de 24 h y elección entre mensaje libre y plantilla |
+| `opt-in.ts` | Consentimiento, palabras de baja, transiciones de opt-in/opt-out |
+| `msisdn.ts` | Normalización a E.164 de lo que las familias realmente escriben |
+| `feedback.ts` | Máquina de estados del feedback, respuestas append-only |
+| `errors.ts` | `DomainError` con códigos estables que los handlers mapean a HTTP |
+
+**La semana del programa se cuenta en días calendario, no en instantes.** Una familia que se inscribe a las
+23:00 en Lima se inscribió *ese* día, aunque en UTC ya sea el siguiente. Los handlers convierten "ahora" a
+fecha de Lima en el borde; de `domain/` para adentro no hay reloj ni zona horaria.
+
+Un test de arquitectura (`test/domain/purity.test.ts`) verifica en cada corrida que ningún módulo de dominio
+importe el SDK de AWS, importe de capas externas, lea el reloj o el entorno, o haga I/O. Si alguien rompe la
+regla, falla el build en vez de descubrirse en revisión.
+
+## Integración WhatsApp (fase 3)
+
+`WhatsAppProvider` tiene dos implementaciones detrás de la misma interfaz, elegidas por `WA_PROVIDER`:
+
+- `MetaCloudProvider` — Graph API directo, versión fijada por el parámetro `WaGraphVersion`.
+- `MockProvider` — no llama a Meta. Escribe el payload a CloudWatch y a la tabla, con un id de mensaje
+  prefijado `wamid.MOCK-` para que un envío simulado nunca se confunda con uno real en los datos ni en el
+  informe final.
+
+**Cualquier valor que no sea exactamente `meta` selecciona el mock.** Una variable mal escrita debe fallar
+hacia no enviar nada, nunca hacia enviar mensajes reales a familias reales con una configuración sin
+verificar.
+
+### Webhook
+
+| Aspecto | Cómo |
+|---|---|
+| Verificación (`GET`) | `hub.challenge` se devuelve solo si `hub.verify_token` coincide, comparado en tiempo constante |
+| Firma (`POST`) | HMAC-SHA256 sobre los **bytes crudos**, comparación de tiempo constante, 403 si no valida. Sin bypass |
+| Deduplicación | Reclamación condicional de `message.id`, liberada si el procesamiento falla |
+| Ventana de servicio | Cada entrante actualiza `lastInboundAt` del cuidador |
+| Estados | Un ítem por `(wamid, status)`, con el objeto `pricing` verbatim |
+| Entrantes de texto | Se archivan como `consulta` abierta en la misma bandeja que la PWA |
+| Bajas | `BAJA`/`STOP`/`SALIR` exactos: opt-out más confirmación por mensaje libre |
+| Aislamiento | Un evento que falla no detiene el resto del lote |
+
+El detalle de las decisiones y sus motivos está en `decisiones.md` D-006 y D-007.
+
+### Secretos en el cold start
+
+`ParameterStore` lee los `SecureString` en lote y los cachea en memoria **con vencimiento de 15 minutos**.
+No es solo caché: un contenedor caliente sosteniendo un token rotado durante horas sería una caída que
+parece un problema de Meta. Las lecturas de parámetros estándar en SSM no se cobran, así que el refresco es
+gratis.
+
+## Envío semanal (fase 4)
+
+`fn-weekly-send` lo dispara EventBridge Scheduler los lunes 09:00 hora de Lima. Por cada programa activo
+recorre sus familias, calcula la semana desde la `anchor_date` guardada, decide elegibilidad y envía.
+
+**El orden importa y es la garantía de que nadie paga dos veces**: el registro `DELIVERY#<iso_week>` se
+escribe con escritura condicional *antes* de enviar el primer mensaje. Ver `decisiones.md` D-008 para los
+tres estados por destinatario y por qué un `pendiente` no se reintenta nunca de forma automática.
+
+### El enlace que recibe la familia
+
+El botón del template lleva un token HMAC de 90 días que identifica **al cuidador**, no solo a la familia —
+hace falta para saber si la bitácora la llenó la madre o el padre. Se reemite en cada envío semanal, así que
+una familia activa nunca llega al vencimiento. La clave está en `APP_TOKEN_SECRET` (SSM `SecureString`).
+
+Un token con el payload editado no valida: la firma cubre familia, cuidador y vencimiento. Con test.
+
+### Reconciliación con la factura de Meta
+
+Al enviar se escribe `WAMID#<wamid> / META` con la familia y la semana ISO. El webhook de `statuses` escribe
+en esa **misma partición** el objeto `pricing` verbatim. Reconciliar una línea de la factura de Meta contra
+una familia y una semana es entonces un solo Query, y se puede ver si el template está cayendo como
+`utility` o como `marketing`, que es la diferencia de precio.
+
+### La hora del día
+
+El scheduler corre en `America/Lima` y la fecha calendario se resuelve con `Intl`, no restando cinco horas.
+Perú no tiene horario de verano, pero la conversión explícita mantiene esto correcto si la plataforma se usa
+en otro lado — y es la frontera de la que depende todo el cálculo de semanas.
+
+## PWA de la familia (fase 5)
+
+Cuatro Lambdas sirven la superficie: `fn-register` (QR, público), `fn-content`, `fn-tracking` y
+`fn-feedback` (token de familia). Las tres últimas comparten `openSession()`, que verifica el token y **carga
+el contexto de la familia desde la base**: del token solo se confía la identidad, nunca los datos.
+
+### La cola offline
+
+La bitácora y el feedback son escrituras, y estas familias van a estar sin señal buena parte del tiempo. Se
+escriben primero en **IndexedDB** —en el celular, no en AWS— y se envían cuando hay conexión. Ver
+`decisiones.md` D-010 para las reglas de la cola y por qué el disparador principal es `visibilitychange`.
+
+El endpoint `/api/seguimiento` acepta un lote por `POST` y **responde por ítem**, para que el dispositivo
+saque de la cola exactamente lo que entró. Un registro malformado no puede dejar varada una semana de
+bitácora. Por `GET` devuelve el historial propio de la familia.
+
+El historial que ve la familia mezcla lo del servidor con lo que sigue en la cola, unido por `clientId`
+(D-015): una entrada escrita sin señal se ve de inmediato marcada como pendiente, pasa a guardada sola
+cuando sincroniza, y nunca aparece duplicada.
+
+La idempotencia es estructural: el id que genera el dispositivo forma parte de la clave de ordenamiento
+(`LOG#<ts>#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer antes de escribir.
+
+### El cerebro que crece
+
+En la pantalla de bitácora, un SVG inline dibuja una red de conexiones que crece con cada día de
+encuentros, con color por tipo de actividad. **Solo acumula: nunca decae ni se apaga**, y eso está
+garantizado por diseño —es una función pura del historial, que solo crece— no por disciplina. El
+razonamiento está en `decisiones.md` D-019, y no es estético: un dibujo que castiga a una madre
+agotada terminaría corrompiendo la medición que el piloto existe para hacer.
+
+### Nota sensible
+
+El texto libre de las notas describe la rutina doméstica de una casa con un recién nacido. Se guarda siempre,
+pero el gestor solo lo ve si la familia lo autorizó en el consentimiento — `freeTextNotesAuthorized` en el
+registro de la familia, marcado en el formulario de inscripción y filtrado en lectura, nunca descartado en
+escritura.
+
+### Instalabilidad y offline
+
+Verificados con Chromium real, no con un puntaje. Ver `decisiones.md` D-009: Lighthouse eliminó su categoría
+PWA en la v12, así que el criterio de aceptación original ya no existe y se reemplazó por comprobaciones
+directas.
+
+## PWA del gestor (fase 6)
+
+`fn-admin` sirve `/api/gestor/*` detrás del autorizador JWT nativo de Cognito. Sobre eso, la función
+**verifica en código** que el claim `cognito:groups` incluya `gestores`: el autorizador prueba que el token
+es válido, no que esa persona deba ver datos de familias. Ver `decisiones.md` D-012.
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /familias` | Listado con semana, bitácora de 7 días, envíos y feedback abierto |
+| `GET /familias/{id}` | Detalle de una familia — **escribe auditoría** |
+| `GET /bandeja?estado=` | Bandeja unificada PWA + WhatsApp, más antiguos primero |
+| `POST /respuesta` | Responde y notifica por WhatsApp — **escribe auditoría** |
+| `POST /cerrar` | Cierra un feedback |
+
+El listado se ordena por atención pendiente: primero las familias con mensajes sin responder, después las que
+menos actividad registraron. Es la pregunta que un gestor hace cada mañana.
+
+### La respuesta se guarda aunque WhatsApp falle
+
+Se escribe el feedback, se audita, y recién después se intenta notificar. Si Meta falla, la respuesta ya está
+guardada y la familia la ve en la PWA; la interfaz le dice al gestor cuál de las dos cosas pasó. Perder la
+notificación es recuperable; perder la respuesta que alguien acaba de escribir, no.
+
+Dentro de la ventana de 24 h se manda mensaje libre (gratis, sin aprobación de plantilla); fuera, plantilla.
+Esa decisión la toma `domain/service-window.ts`, la misma función que ya estaba testeada desde la fase 2.
+
+### Sesión del gestor
+
+`amazon-cognito-identity-js` implementa SRP y el desafío TOTP. Se envía el **ID token**, no el access token:
+el autorizador está configurado con `audience: [clientId]` y solo el ID token lleva `aud`.
+
+La configuración del user pool no va compilada en el bundle sino en un `config.json` que se escribe al
+desplegar desde los outputs del stack, así un mismo build sirve para cualquier stack. Está excluido del
+precache del service worker para que nunca quede una versión vieja.
+
+**El bundle del gestor pesa 103 KB y el de la familia 17 KB, y son chunks separados**: el dispositivo de una
+familia nunca descarga el código de Cognito ni la vista de gestión.
+
+## Exportación de indicadores (fase 7)
+
+`GET /api/gestor/export/{dataset}.csv` produce seis archivos: `resumen`, `familias`, `bitacora`, `envios`,
+`feedback` y `auditoria`. Las definiciones de cada indicador están en `indicadores.md`; las decisiones de
+implementación en `decisiones.md` D-013 y D-014.
+
+Tres cosas que no son obvias:
+
+- **Un `Scan` paginado**, no consultas por familia. Ver D-014 para por qué a esta escala es lo correcto.
+- **El CSV se neutraliza contra inyección de fórmulas** y lleva BOM. Una nota de bitácora es texto libre
+  escrito por un desconocido que va a terminar abierto en Excel.
+- **Exportar queda auditado.** Es la acción que saca datos de menores de la plataforma.
+
+Los CSV de ejemplo en `ejemplos/` se generan sin AWS y sin red con
+`node backend/scripts/generar-ejemplos.ts`, con semilla fija para que regenerarlos dé un diff idéntico.
+
+## Toolchain
+
+**TypeScript sin framework de tests.** Node 22.22 ejecuta TypeScript de forma nativa, así que `node --test`
+corre los tests directamente sobre el fuente: no hay jest, ni vitest, ni paso de compilación para probar.
+Una dependencia menos que justificar.
+
+`esbuild` está en `dependencies` y no en `devDependencies` a propósito: el build method de SAM instala la
+función sin dependencias de desarrollo y no lo encontraría. No llega al artefacto de Lambda — esbuild emite
+solo el bundle, sin `node_modules`.
+
+## Verificación hecha en esta fase
+
+| Comprobación | Resultado |
+|---|---|
+| `sam validate --lint` | Pasa |
+| `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
+| `npm test` (backend, sin red ni credenciales) | 376 tests, todos pasan |
+| `npm test` (web) | 45 tests, todos pasan |
+| `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
+| `tsc --noEmit` (backend y web) | Pasa |
+| `npm run build` (web) | Pasa; chunks de familia y gestor separados |
+| `sam deploy` | **No ejecutado** — no hay credenciales AWS en este entorno |
+
+El despliegue real contra una cuenta limpia queda por verificar. Todo lo anterior a él está comprobado.

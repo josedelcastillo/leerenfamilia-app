@@ -1,0 +1,341 @@
+/*
+ * Mobile-first, high contrast, large type, large tap targets.
+ *
+ * The reader is a caregiver with a newborn, often at night, often one-handed, often on a cheap
+ * phone in bright sunlight. Every choice here follows from that: 18px base text, 3rem minimum
+ * touch targets, and contrast well past WCAG AA rather than exactly at it.
+ *
+ * Palette: the Leer en Familia identity — coral wordmark, purple books, warm grey animals, pink
+ * cheeks, white ground. Two rules keep it legible in the sun:
+ *
+ *   1. The logo coral is 3.46:1 on white. That is below AA for body text and below AA for white
+ *      button labels, so it never carries text. `--coral` is the illustration colour; `--brand`
+ *      is the same hue deepened to 6.36:1 and is the only one allowed under or behind type.
+ *   2. The brand ground is white, not coral — in the identity the coral is the ink on a white
+ *      page. So the header is paper with a coral wordmark, not a coral bar. That is both more
+ *      faithful to the artwork and the reason the accessibility score holds at 100.
+ *
+ * Every value below is measured, not eyeballed; `npm run check:contrast` fails the build if any
+ * pair drops under its threshold.
+ */
+:root {
+  /* Identity */
+  --coral: #e85c4a;        /* the wordmark coral. Illustration and fills only, never under text */
+  --coral-soft: #fdeeea;   /* coral at paper weight, for tinted surfaces */
+  --brand: #a83a28;        /* the coral deepened for type and controls — 6.36:1 on white */
+  --brand-ink: #ffffff;
+  --accent: #6e4e9b;       /* the purple of the books — 6.51:1 on white */
+  --accent-soft: #f1ecf7;
+  --blush: #f4a8a0;        /* the cheeks. Decorative only */
+
+  /* Ink and paper, warmed to sit with the illustration rather than fight it */
+  --ink: #2e2320;
+  --ink-soft: #6b5750;
+  --paper: #fffbf7;
+  --surface: #ffffff;
+  --line: #e6dcd6;
+
+  --ok: #1c6b3f;
+  --warn: #8a5a00;
+
+  --radius: 0.75rem;
+  --touch: 3rem;
+  --gap: 1rem;
+
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; background: var(--paper); }
+
+.app {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 0 var(--gap) 6rem;
+}
+
+h1 { font-size: 1.5rem; line-height: 1.25; margin: 1rem 0 0.25rem; }
+h2 { font-size: 1.2rem; line-height: 1.3; margin: 1.5rem 0 0.5rem; }
+h3 { font-size: 1rem; margin: 0 0 0.25rem; }
+p { margin: 0.5rem 0; }
+
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.85rem; }
+
+/* --- header ------------------------------------------------------------- */
+/* Paper, not a coloured bar: in the identity the coral is ink on a white page. */
+.topbar {
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0.7rem var(--gap) 0.6rem;
+  margin: 0 calc(-1 * var(--gap));
+  border-bottom: 1px solid var(--line);
+}
+.topbar h1 { margin: 0; font-size: 1.15rem; color: var(--brand); }
+.topbar .muted { color: var(--ink-soft); }
+
+/*
+ * The wordmark, typeset the way the logo sets it: "Nacidos" and "Leer" large, "para" small and
+ * tucked between them. System type, no webfont — a font file is a blocking download on a cheap
+ * phone, and the shape of the name carries the recognition well enough at this size.
+ */
+.marca {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin: 0;
+  color: var(--brand);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+.marca__menor {
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.marca__pais {
+  font-size: 0.62em;
+  font-weight: 700;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+
+/* --- status banners ----------------------------------------------------- */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius);
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+  border: 2px solid transparent;
+}
+.banner--offline { background: #fff4d6; border-color: #e0b64a; color: var(--warn); }
+.banner--pending { background: var(--coral-soft); border-color: #eab4a8; color: var(--brand); }
+.banner--error { background: #fbe7e1; border-color: #d09480; color: var(--brand); }
+
+/* --- cards -------------------------------------------------------------- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--gap);
+  margin: 0.75rem 0;
+}
+.card--muted { background: #faf4f0; }
+
+.placeholder-note {
+  background: #fff4d6;
+  border-left: 4px solid #e0b64a;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--warn);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+/* --- forms -------------------------------------------------------------- */
+label { display: block; font-weight: 600; margin: 0.9rem 0 0.3rem; }
+
+input, select, textarea {
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: var(--radius);
+}
+textarea { min-height: 6rem; resize: vertical; }
+input:focus-visible, select:focus-visible, textarea:focus-visible,
+button:focus-visible, a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Chip group: bigger and easier to hit one-handed than a native select. */
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.chip {
+  min-height: var(--touch);
+  padding: 0.5rem 1rem;
+  border: 2px solid var(--line);
+  border-radius: 2rem;
+  background: var(--surface);
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+.btn {
+  min-height: var(--touch);
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 1rem;
+  border: 2px solid var(--brand);
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: var(--brand-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn--secondary { background: var(--surface); color: var(--brand); }
+.btn--secondary:disabled { opacity: 0.55; }
+
+/* --- lists -------------------------------------------------------------- */
+.entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
+.entry:last-child { border-bottom: none; }
+.entry__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+
+.tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 1rem;
+  background: var(--coral-soft);
+  color: var(--brand);
+}
+.tag--pending { background: #fff4d6; color: var(--warn); }
+.tag--ok { background: #e2f0e8; color: var(--ok); }
+
+/* --- bottom navigation -------------------------------------------------- */
+.tabs {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabs button {
+  flex: 1;
+  min-height: 3.5rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-top: 3px solid transparent;
+}
+.tabs button[aria-current='page'] {
+  color: var(--brand);
+  font-weight: 700;
+  border-top-color: var(--brand);
+}
+
+.thread-reply {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0 0 0.5rem;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+.thread-reply p:last-child { margin-bottom: 0; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* --- el cerebro que crece ------------------------------------------------ */
+/*
+ * It only ever grows. Nothing here fades, dims or empties when a family stops logging: a brain that
+ * withers after a bad week would be a guilt device pointed at someone in the hardest month of her
+ * life, and it would make logging feel expensive — which is exactly what the pilot cannot afford.
+ */
+.cerebro {
+  margin: 0 0 1rem;
+  padding: 1rem 1rem 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.cerebro svg { width: 100%; max-width: 17rem; height: auto; display: block; margin: 0 auto; }
+
+.cerebro__silueta path { fill: #fdeff0; stroke: #eec9c4; stroke-width: 1.6; stroke-linejoin: round; }
+.cerebro__silueta .cerebro__surco { fill: none; stroke: #eec9c4; stroke-width: 1.8; stroke-linecap: round; }
+.cerebro__silueta .cerebro__tallo { fill: #fae2e2; stroke: #eec9c4; stroke-width: 1.6; }
+
+.cerebro__rama line {
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.cerebro__rama circle { fill: currentColor; }
+
+/* The brand's own colour for the brand's own verb, then the purple of the books, then two
+   hues warm enough to belong beside them. The legend labels each one in words, so colour is
+   never the only thing telling them apart. */
+.cerebro__rama--lectura { color: #b8402c; }
+.cerebro__rama--cancion { color: #6e4e9b; }
+.cerebro__rama--juego { color: #2f7a55; }
+.cerebro__rama--conversacion { color: #8a5a12; }
+
+/* Each branch draws itself outward from the one it grew from. On first paint they cascade in
+   order, so the network visibly grows the way the weeks did. */
+.cerebro__rama line { stroke-dasharray: 60; animation: cerebro-trazo 420ms ease-out both; }
+.cerebro__rama circle { animation: cerebro-brote 300ms ease-out both; }
+.cerebro__rama { animation-delay: calc(var(--orden) * 22ms); }
+.cerebro__rama line { animation-delay: calc(var(--orden) * 22ms); }
+.cerebro__rama circle { animation-delay: calc(var(--orden) * 22ms + 260ms); }
+
+/* The one just added gets a pulse of its own, so a new entry is unmistakable. */
+.cerebro--creciendo .cerebro__rama.is-newest circle {
+  animation: cerebro-pulso 1100ms 300ms ease-out both;
+}
+
+@keyframes cerebro-trazo { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes cerebro-brote { from { r: 0; } to { r: 2.4; } }
+@keyframes cerebro-pulso {
+  0% { r: 2.4; }
+  35% { r: 7; opacity: 0.55; }
+  100% { r: 3.2; opacity: 1; }
+}
+
+.cerebro__cifra { margin: 0.5rem 0 0.25rem; font-size: 0.95rem; }
+.cerebro__leyenda {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.cerebro__leyenda li { display: flex; align-items: center; gap: 0.3rem; }
+.cerebro__punto { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: currentColor; }
+
+/* Someone who asked for less motion gets the finished drawing, not the animation. */
+@media (prefers-reduced-motion: reduce) {
+  .cerebro__rama line,
+  .cerebro__rama circle,
+  .cerebro--creciendo .cerebro__rama.is-newest circle {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

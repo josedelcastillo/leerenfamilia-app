@@ -1,0 +1,5 @@
+{
+  "_comment": "Overwritten at deploy time from the CloudFormation outputs; see docs/runbook.md.",
+  "userPoolId": "",
+  "userPoolClientId": ""
+}
