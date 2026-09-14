@@ -66,6 +66,9 @@ descartadas y consecuencias. El contenido mínimo de cada una:
   guardan.
 - "Exportar datos" se conserva como sexto ítem de la barra lateral.
 - La auditoría en pantalla muestra dos meses; el registro completo sigue en `auditoria.csv` (TTL 365 días).
+- Las familias de baja cuentan como registradas y en el denominador del consentimiento, pero no en "sin
+  registros en 7 días": se fueron del programa, no son trabajo pendiente del equipo. Las suprimidas no
+  llegan al tablero.
 
 **D-027 — El pedido de supresión, transitorio, va por la bandeja**
 - El botón "Pedir que borren mis datos" encola un `feedback` de tipo `pedido` con texto fijo, tras una

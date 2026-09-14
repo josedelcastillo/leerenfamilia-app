@@ -94,4 +94,12 @@ describe('tablero del piloto (D-026)', () => {
     assert.equal(serialized.includes('Bebé'), false);
     assert.equal(serialized.includes('kit'), false);
   });
+
+  test('una familia de baja cuenta como registrada, pero no como "sin registros en 7 días"', () => {
+    const conBaja = [...FAMILIES, family('fam-4', '2026-09-15', { status: 'baja' })];
+    const d = buildDashboard(conBaja, PROGRAM, TODAY);
+    assert.equal(d.registradas, 4);
+    assert.equal(d.consentimientoNotas.de, 4);
+    assert.equal(d.sinRegistros7Dias, 1, 'fam-4 opted out: it is not the team\'s pending work');
+  });
 });
