@@ -49,6 +49,10 @@ descartadas y consecuencias. El contenido mínimo de cada una:
 - El cambio más reciente gana por su hora (`notesConsentAt` en META), no por orden de llegada: la cola
   offline no preserva el orden y dos teléfonos pueden enviar cambios cruzados. Un cambio viejo deja su
   registro de prueba pero no toca el permiso. La hora del dispositivo se recorta a la de recepción.
+- En empate de hora gana la revocación. Un teléfono con el reloj muy atrasado envía cambios más viejos
+  que la inscripción: quedan como prueba pero no cambian el permiso; la pantalla de privacidad muestra
+  el valor del servidor después de sincronizar, así que la familia lo ve. La clave del registro de
+  prueba usa la hora del dispositivo, así un reintento no duplica la prueba.
 - Revocar oculta también las notas ya enviadas, sin código extra: el filtro es en lectura (regla 8).
 - El texto de la pantalla 6 es borrador, pendiente de revisión legal, como el del consentimiento.
 

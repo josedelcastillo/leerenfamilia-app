@@ -144,12 +144,14 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
    * Proof first, then the flag, and the newest change wins by its own time (D-025).
    *
    * The offline queue does not preserve order and two caregivers' phones can deliver crossed changes,
-   * so the flag on META only moves for a change strictly newer than `notesConsentAt`, the time of
-   * the change that set it. A stale change still gets its CONSENT# proof — it did happen, and the
-   * record is evidence of what the family chose and when — but it must not flip the flag; its
-   * failed condition is swallowed so the device dequeues it as processed. The proof is keyed by
-   * client id, so a replay overwrites it; if the flag update fails for any other reason the error
-   * propagates and the replay rewrites the same proof.
+   * so the flag on META only moves for a change newer than `notesConsentAt`, the time of the change
+   * that set it. On a tie the revocation wins: two changes clamped to the same receipt time arrive
+   * in any order, and when in doubt the notes stay private. A stale change still gets its CONSENT#
+   * proof — it did happen, and the record is evidence of what the family chose and when — but it
+   * must not flip the flag; its failed condition is swallowed so the device dequeues it as
+   * processed. The proof is keyed by the device's own time and the client id, neither of which a
+   * replay changes, so a replay overwrites it; if the flag update fails for any other reason the
+   * error propagates and the replay rewrites the same proof.
    *
    * The flag is what `openFamilyDetail` and the export read, so revoking hides every note already
    * sent — the filter is on read (rule 8), which is what makes a revocation retroactive for free.
@@ -160,12 +162,13 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
         TableName: this.#table,
         Item: {
           PK: KEY.family(familyId),
-          SK: SK.consentChange(change.at, change.clientId),
+          SK: SK.consentChange(change.deviceAt, change.clientId),
           entity: 'consent',
           familyId,
           channel: 'pwa',
           version: change.version,
           acceptedAt: change.at,
+          deviceAt: change.deviceAt,
           freeTextNotesAuthorized: change.notesAuthorized,
           changedBy: change.changedBy,
           clientId: change.clientId,
@@ -180,8 +183,13 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
           UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
           // ISO-8601 UTC strings from toISOString() order correctly as strings.
           ConditionExpression:
-            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at)',
-          ExpressionAttributeValues: { ':value': change.notesAuthorized, ':at': change.at },
+            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at' +
+            ' OR (notesConsentAt = :at AND :value = :false))',
+          ExpressionAttributeValues: {
+            ':value': change.notesAuthorized,
+            ':at': change.at,
+            ':false': false,
+          },
         }),
       );
     } catch (error) {

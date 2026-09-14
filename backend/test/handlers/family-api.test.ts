@@ -47,10 +47,15 @@ class FakeFamilyStore implements FamilyStore {
   feedback: Feedback[] = [];
   requestedWeeks: number[] = [];
   failNextWrite = false;
-  consentChanges: NotesConsentChange[] = [];
+  /** CONSENT# proofs, keyed by `deviceAt#clientId` exactly like the adapter's sort key. */
+  consentProofs = new Map<string, NotesConsentChange>();
   consentFamilyIds: string[] = [];
   /** Mirrors `notesConsentAt` on META: the time of the change that set the flag. */
   notesConsentAt: string | null = null;
+
+  get consentChanges(): NotesConsentChange[] {
+    return [...this.consentProofs.values()];
+  }
 
   async getContext(): Promise<FamilyContext | null> {
     return this.context;
@@ -81,9 +86,14 @@ class FakeFamilyStore implements FamilyStore {
   }
   async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
     this.consentFamilyIds.push(familyId);
-    // Same semantics as the adapter: the proof is always written, the flag only by a newer change.
-    this.consentChanges = [...this.consentChanges.filter((c) => c.clientId !== change.clientId), change];
-    if (this.notesConsentAt === null || this.notesConsentAt < change.at) {
+    // Same semantics as the adapter: the proof is always written, the flag only by a newer change,
+    // and a revocation wins a tie.
+    this.consentProofs.set(`${change.deviceAt}#${change.clientId}`, change);
+    if (
+      this.notesConsentAt === null ||
+      this.notesConsentAt < change.at ||
+      (this.notesConsentAt === change.at && !change.notesAuthorized)
+    ) {
       this.notesConsentAt = change.at;
       this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
     }
@@ -494,7 +504,7 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.equal(store.context.freeTextNotesAuthorized, true);
     assert.deepEqual(store.consentChanges, [{
       clientId: 'c-1', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z',
-      version: 'borrador-0', changedBy: MOTHER,
+      deviceAt: '2026-09-20T13:00:00.000Z', version: 'borrador-0', changedBy: MOTHER,
     }]);
   });
 
@@ -550,6 +560,39 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     // A phone clock set ahead must not win every later comparison.
     await applySync(store, store.context, MOTHER, [consentItem({ at: '2027-01-01T00:00:00.000Z' })], TODAY, NOW);
     assert.equal(store.consentChanges[0]?.at, NOW.toISOString());
+  });
+
+  test('reintentar un cambio recortado no duplica la prueba', async () => {
+    // A lost response makes the device resend the same item later: the clamped time moves with the
+    // receipt time, so the proof must be keyed by the device's own time.
+    const item = consentItem({ at: '2027-01-01T00:00:00.000Z' });
+    await applySync(store, store.context, MOTHER, [item], TODAY, NOW);
+    await applySync(store, store.context, MOTHER, [item], TODAY, new Date(NOW.getTime() + 60_000));
+    assert.equal(store.consentChanges.length, 1);
+    assert.equal(store.consentChanges[0]?.deviceAt, '2027-01-01T00:00:00.000Z');
+  });
+
+  describe('en empate de hora gana la revocación', () => {
+    // A phone clock ahead: grant then revoke offline, both clamped to the same receipt time.
+    const grant = (): SyncItem =>
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2027-01-01T00:00:00.000Z' });
+    const revoke = (): SyncItem =>
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2027-01-01T00:05:00.000Z' });
+
+    beforeEach(() => {
+      store.context = { ...store.context, freeTextNotesAuthorized: true };
+      store.notesConsentAt = '2026-09-15T15:00:00.000Z';
+    });
+
+    test('con la autorización procesada al final', async () => {
+      await applySync(store, store.context, MOTHER, [revoke(), grant()], TODAY, NOW);
+      assert.equal(store.context.freeTextNotesAuthorized, false);
+    });
+
+    test('con la revocación procesada al final', async () => {
+      await applySync(store, store.context, MOTHER, [grant(), revoke()], TODAY, NOW);
+      assert.equal(store.context.freeTextNotesAuthorized, false);
+    });
   });
 
   test('ignora un changedBy o un familyId que vengan en el cuerpo', async () => {

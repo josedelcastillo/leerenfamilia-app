@@ -13,6 +13,7 @@ handler de gestor, que ya recibe `/api/gestor/{proxy+}`. **No se toca `infra/tem
   `backend/src/adapters/family-store.ts`, `backend/src/handlers/tracking/logic.ts`,
   `backend/src/handlers/tracking/index.ts`
 - Test: `backend/test/handlers/family-api.test.ts`, `backend/test/adapters/keys.test.ts`
+- Create: `backend/test/adapters/family-store-consent.test.ts`
 
 - [ ] **Step 1: Tests que fallan**
 
@@ -20,16 +21,26 @@ En `family-api.test.ts`, importe `NotesConsentChange` desde `family-ports.ts` y 
 `FakeFamilyStore`:
 
 ```ts
-  consentChanges: NotesConsentChange[] = [];
+  /** CONSENT# proofs, keyed by `deviceAt#clientId` exactly like the adapter's sort key. */
+  consentProofs = new Map<string, NotesConsentChange>();
   consentFamilyIds: string[] = [];
   /** Mirrors `notesConsentAt` on META: the time of the change that set the flag. */
   notesConsentAt: string | null = null;
 
+  get consentChanges(): NotesConsentChange[] {
+    return [...this.consentProofs.values()];
+  }
+
   async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
     this.consentFamilyIds.push(familyId);
-    // Same semantics as the adapter: the proof is always written, the flag only by a newer change.
-    this.consentChanges = [...this.consentChanges.filter((c) => c.clientId !== change.clientId), change];
-    if (this.notesConsentAt === null || this.notesConsentAt < change.at) {
+    // Same semantics as the adapter: the proof is always written, the flag only by a newer change,
+    // and a revocation wins a tie.
+    this.consentProofs.set(`${change.deviceAt}#${change.clientId}`, change);
+    if (
+      this.notesConsentAt === null ||
+      this.notesConsentAt < change.at ||
+      (this.notesConsentAt === change.at && !change.notesAuthorized)
+    ) {
       this.notesConsentAt = change.at;
       this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
     }
@@ -58,7 +69,7 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.equal(store.context.freeTextNotesAuthorized, true);
     assert.deepEqual(store.consentChanges, [{
       clientId: 'c-1', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z',
-      version: 'borrador-0', changedBy: MOTHER,
+      deviceAt: '2026-09-20T13:00:00.000Z', version: 'borrador-0', changedBy: MOTHER,
     }]);
   });
 
@@ -116,6 +127,39 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.equal(store.consentChanges[0]?.at, NOW.toISOString());
   });
 
+  test('reintentar un cambio recortado no duplica la prueba', async () => {
+    // A lost response makes the device resend the same item later: the clamped time moves with the
+    // receipt time, so the proof must be keyed by the device's own time.
+    const item = consentItem({ at: '2027-01-01T00:00:00.000Z' });
+    await applySync(store, store.context, MOTHER, [item], TODAY, NOW);
+    await applySync(store, store.context, MOTHER, [item], TODAY, new Date(NOW.getTime() + 60_000));
+    assert.equal(store.consentChanges.length, 1);
+    assert.equal(store.consentChanges[0]?.deviceAt, '2027-01-01T00:00:00.000Z');
+  });
+
+  describe('en empate de hora gana la revocación', () => {
+    // A phone clock ahead: grant then revoke offline, both clamped to the same receipt time.
+    const grant = (): SyncItem =>
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2027-01-01T00:00:00.000Z' });
+    const revoke = (): SyncItem =>
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2027-01-01T00:05:00.000Z' });
+
+    beforeEach(() => {
+      store.context = { ...store.context, freeTextNotesAuthorized: true };
+      store.notesConsentAt = '2026-09-15T15:00:00.000Z';
+    });
+
+    test('con la autorización procesada al final', async () => {
+      await applySync(store, store.context, MOTHER, [revoke(), grant()], TODAY, NOW);
+      assert.equal(store.context.freeTextNotesAuthorized, false);
+    });
+
+    test('con la revocación procesada al final', async () => {
+      await applySync(store, store.context, MOTHER, [grant(), revoke()], TODAY, NOW);
+      assert.equal(store.context.freeTextNotesAuthorized, false);
+    });
+  });
+
   test('ignora un changedBy o un familyId que vengan en el cuerpo', async () => {
     await applySync(store, store.context, MOTHER, [
       consentItem({ changedBy: 'intruso', familyId: 'otra-familia' }),
@@ -152,11 +196,130 @@ En `test/adapters/keys.test.ts`, agregue:
 ```
 (si el archivo no importa `SK`, agréguelo al import de `../../src/adapters/keys.ts`).
 
+Cree `test/adapters/family-store-consent.test.ts`, que prueba el adaptador real contra un cliente
+DynamoDB falso (no necesita credenciales ni red: el cliente del SDK solo se construye si no se inyecta):
+
+```ts
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import { FamilyDataStore } from '../../src/adapters/family-store.ts';
+import { isoDate } from '../../src/domain/dates.ts';
+import type { Msisdn } from '../../src/domain/msisdn.ts';
+import type { NotesConsentChange } from '../../src/handlers/family-ports.ts';
+import type { EnrollmentRecord } from '../../src/handlers/register/logic.ts';
+
+interface SentCommand {
+  readonly name: string;
+  readonly input: Record<string, any>;
+}
+
+/** Records every command and, when told to, fails one kind of command with a named error. */
+class StubDoc {
+  readonly sent: SentCommand[] = [];
+  failOn: { command: string; errorName: string } | null = null;
+
+  async send(command: { constructor: { name: string }; input: Record<string, any> }): Promise<unknown> {
+    const name = command.constructor.name;
+    this.sent.push({ name, input: command.input });
+    if (this.failOn?.command === name) {
+      const error = new Error('stub failure');
+      error.name = this.failOn.errorName;
+      throw error;
+    }
+    return {};
+  }
+}
+
+function storeWith(stub: StubDoc): FamilyDataStore {
+  return new FamilyDataStore('tabla', stub as unknown as DynamoDBDocumentClient);
+}
+
+// A clamped change: the device said 2027, the server received it earlier.
+const CHANGE: NotesConsentChange = {
+  clientId: 'c-1',
+  notesAuthorized: true,
+  deviceAt: '2027-01-01T00:00:00.000Z',
+  at: '2026-09-20T14:00:00.000Z',
+  version: 'borrador-0',
+  changedBy: '+51987654321',
+};
+
+describe('FamilyDataStore.putNotesConsent', () => {
+  test('writes the proof keyed by device time, then the flag conditioned on the effective time', async () => {
+    const stub = new StubDoc();
+    await storeWith(stub).putNotesConsent('fam-1', CHANGE);
+
+    assert.deepEqual(stub.sent.map((c) => c.name), ['PutCommand', 'UpdateCommand']);
+
+    const put = stub.sent[0]!.input;
+    assert.equal(put['TableName'], 'tabla');
+    assert.equal(put['Item']['PK'], 'FAMILY#fam-1');
+    assert.equal(put['Item']['SK'], `CONSENT#${CHANGE.deviceAt}#${CHANGE.clientId}`);
+    assert.equal(put['Item']['entity'], 'consent');
+    assert.equal(put['Item']['channel'], 'pwa');
+    assert.equal(put['Item']['deviceAt'], CHANGE.deviceAt);
+    assert.equal(put['Item']['acceptedAt'], CHANGE.at);
+
+    const update = stub.sent[1]!.input;
+    assert.deepEqual(update['Key'], { PK: 'FAMILY#fam-1', SK: 'META' });
+    assert.ok(String(update['ConditionExpression']).includes('notesConsentAt < :at'));
+    assert.ok(String(update['ConditionExpression']).includes('(notesConsentAt = :at AND :value = :false)'));
+    assert.equal(update['ExpressionAttributeValues'][':at'], CHANGE.at);
+    assert.equal(update['ExpressionAttributeValues'][':value'], true);
+    assert.equal(update['ExpressionAttributeValues'][':false'], false);
+  });
+
+  test('swallows a failed condition: the change is stale, not an error', async () => {
+    const stub = new StubDoc();
+    stub.failOn = { command: 'UpdateCommand', errorName: 'ConditionalCheckFailedException' };
+    await assert.doesNotReject(() => storeWith(stub).putNotesConsent('fam-1', CHANGE));
+    assert.equal(stub.sent.length, 2, 'the proof was still written');
+  });
+
+  test('rethrows any other error on the flag update, so the device retries', async () => {
+    const stub = new StubDoc();
+    stub.failOn = { command: 'UpdateCommand', errorName: 'ProvisionedThroughputExceededException' };
+    await assert.rejects(
+      () => storeWith(stub).putNotesConsent('fam-1', CHANGE),
+      { name: 'ProvisionedThroughputExceededException' },
+    );
+  });
+});
+
+describe('FamilyDataStore.createFamily', () => {
+  test('seeds notesConsentAt on META with the enrolment time', async () => {
+    const record: EnrollmentRecord = {
+      familyId: 'fam-1',
+      programId: 'piloto-2026',
+      clinic: 'clinica-1',
+      anchorDate: isoDate('2026-09-15'),
+      anchorPolicy: 'enrollment_date',
+      babyName: 'Mateo',
+      babyBirthDate: isoDate('2026-09-10'),
+      caregivers: [{ msisdn: '+51987654321' as Msisdn, role: 'principal', relation: 'mama' }],
+      consentVersion: 'v1',
+      freeTextNotesAuthorized: false,
+      enrolledAt: '2026-09-15T15:00:00.000Z',
+    };
+    const stub = new StubDoc();
+    await storeWith(stub).createFamily(record);
+
+    assert.deepEqual(stub.sent.map((c) => c.name), ['TransactWriteCommand']);
+    const items = (stub.sent[0]!.input['TransactItems'] as Array<{ Put: { Item: Record<string, unknown> } }>)
+      .map((t) => t.Put.Item);
+    const meta = items.find((item) => item['SK'] === 'META');
+    assert.ok(meta, 'META item is written');
+    assert.equal(meta['notesConsentAt'], record.enrolledAt);
+  });
+});
+```
+
 - [ ] **Step 2: Correr y ver el fallo**
 
-Run: `cd backend && node --test test/handlers/family-api.test.ts test/adapters/keys.test.ts`
+Run: `cd backend && node --test test/handlers/family-api.test.ts test/adapters/keys.test.ts test/adapters/family-store-consent.test.ts`
 Expected: FAIL: tipo `consentimiento` desconocido, `SK.consentChange` no existe, `notesAuthorized` y
-`relation` en `undefined`.
+`relation` en `undefined`, `putNotesConsent` no existe en el adaptador.
 
 - [ ] **Step 3: Implementar**
 
@@ -176,10 +339,15 @@ export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
   /**
-   * When the caregiver flipped the switch, from the device's clock clamped to the receipt time. The
-   * newest change wins by this time, not by arrival order.
+   * The effective time: the device's clock clamped to the receipt time. The newest change wins by
+   * this time, not by arrival order, and it is what `acceptedAt` and `notesConsentAt` store.
    */
   readonly at: string;
+  /**
+   * The time exactly as the device sent it, normalised to ISO-8601. Used only in the proof's key:
+   * unlike `at`, it does not move when a lost response makes the device resend the same change.
+   */
+  readonly deviceAt: string;
   /** Version of the text shown on the privacy screen when the change was made. */
   readonly version: string;
   /** The caregiver whose signed token sent the change. */
@@ -201,12 +369,14 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
    * Proof first, then the flag, and the newest change wins by its own time (D-025).
    *
    * The offline queue does not preserve order and two caregivers' phones can deliver crossed changes,
-   * so the flag on META only moves for a change strictly newer than `notesConsentAt`, the time of
-   * the change that set it. A stale change still gets its CONSENT# proof — it did happen, and the
-   * record is evidence of what the family chose and when — but it must not flip the flag; its
-   * failed condition is swallowed so the device dequeues it as processed. The proof is keyed by
-   * client id, so a replay overwrites it; if the flag update fails for any other reason the error
-   * propagates and the replay rewrites the same proof.
+   * so the flag on META only moves for a change newer than `notesConsentAt`, the time of the change
+   * that set it. On a tie the revocation wins: two changes clamped to the same receipt time arrive
+   * in any order, and when in doubt the notes stay private. A stale change still gets its CONSENT#
+   * proof — it did happen, and the record is evidence of what the family chose and when — but it
+   * must not flip the flag; its failed condition is swallowed so the device dequeues it as
+   * processed. The proof is keyed by the device's own time and the client id, neither of which a
+   * replay changes, so a replay overwrites it; if the flag update fails for any other reason the
+   * error propagates and the replay rewrites the same proof.
    *
    * The flag is what `openFamilyDetail` and the export read, so revoking hides every note already
    * sent — the filter is on read (rule 8), which is what makes a revocation retroactive for free.
@@ -217,12 +387,13 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
         TableName: this.#table,
         Item: {
           PK: KEY.family(familyId),
-          SK: SK.consentChange(change.at, change.clientId),
+          SK: SK.consentChange(change.deviceAt, change.clientId),
           entity: 'consent',
           familyId,
           channel: 'pwa',
           version: change.version,
           acceptedAt: change.at,
+          deviceAt: change.deviceAt,
           freeTextNotesAuthorized: change.notesAuthorized,
           changedBy: change.changedBy,
           clientId: change.clientId,
@@ -237,8 +408,13 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
           UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
           // ISO-8601 UTC strings from toISOString() order correctly as strings.
           ConditionExpression:
-            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at)',
-          ExpressionAttributeValues: { ':value': change.notesAuthorized, ':at': change.at },
+            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at' +
+            ' OR (notesConsentAt = :at AND :value = :false))',
+          ExpressionAttributeValues: {
+            ':value': change.notesAuthorized,
+            ':at': change.at,
+            ':false': false,
+          },
         }),
       );
     } catch (error) {
@@ -280,6 +456,8 @@ En `tracking/logic.ts`:
           // The newest change wins by this time (D-025), so a phone clock set in the future would win
           // every later comparison: clamp it to when the server received it.
           at: new Date(Math.min(Date.parse(at), receivedAt.getTime())).toISOString(),
+          // The proof is keyed by the device's own time, which a retry does not change.
+          deviceAt: new Date(at).toISOString(),
           version,
           changedBy: principalMsisdn,
         });

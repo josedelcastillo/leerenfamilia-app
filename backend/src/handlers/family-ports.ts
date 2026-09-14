@@ -41,10 +41,15 @@ export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
   /**
-   * When the caregiver flipped the switch, from the device's clock clamped to the receipt time. The
-   * newest change wins by this time, not by arrival order.
+   * The effective time: the device's clock clamped to the receipt time. The newest change wins by
+   * this time, not by arrival order, and it is what `acceptedAt` and `notesConsentAt` store.
    */
   readonly at: string;
+  /**
+   * The time exactly as the device sent it, normalised to ISO-8601. Used only in the proof's key:
+   * unlike `at`, it does not move when a lost response makes the device resend the same change.
+   */
+  readonly deviceAt: string;
   /** Version of the text shown on the privacy screen when the change was made. */
   readonly version: string;
   /** The caregiver whose signed token sent the change. */
