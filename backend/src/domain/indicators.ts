@@ -1,6 +1,6 @@
 import { daysBetween, type IsoDate } from './dates.ts';
 import type { Feedback } from './feedback.ts';
-import type { LogActivityKind, LogEntry } from './log-entry.ts';
+import type { DeclaredBy, LogActivityKind, LogEntry } from './log-entry.ts';
 import { programWeek } from './schedule.ts';
 import type { FamilyStatus } from './eligibility.ts';
 
@@ -72,6 +72,9 @@ export interface FamilyIndicators {
   readonly entradas: number;
   readonly diasDistintos: number;
   readonly minutosTotales: number;
+  /** Entries that reported a duration. `minutosTotales` sums only these (D-024). */
+  readonly entradasConMinutos: number;
+  readonly entradasPorDeclarado: Readonly<Record<DeclaredByBucket, number>>;
   readonly entradasPorTipo: Readonly<Record<LogActivityKind, number>>;
   readonly diasConLectura: number;
   readonly entradasCuidadorPrincipal: number;
@@ -91,6 +94,11 @@ const EMPTY_BY_KIND: Record<LogActivityKind, number> = {
   lectura: 0, cancion: 0, juego: 0, conversacion: 0,
 };
 
+/** `sin_dato` is an entry where the family did not say who did it — the one-tap default (D-024). */
+export type DeclaredByBucket = DeclaredBy | 'sin_dato';
+
+const EMPTY_DECLARED: Record<DeclaredByBucket, number> = { mama: 0, papa: 0, otra: 0, sin_dato: 0 };
+
 function hoursBetween(fromIso: string, toIso: string): number {
   return (Date.parse(toIso) - Date.parse(fromIso)) / 3_600_000;
 }
@@ -109,6 +117,8 @@ export function familyIndicators(
   const days = new Set<string>();
   const readingDays = new Set<string>();
   let minutos = 0;
+  let conMinutos = 0;
+  const declared: Record<DeclaredByBucket, number> = { ...EMPTY_DECLARED };
   let principal = 0;
   let secundario = 0;
 
@@ -121,7 +131,12 @@ export function familyIndicators(
     byKind[entry.kind] += 1;
     days.add(entry.date);
     if (entry.kind === 'lectura') readingDays.add(entry.date);
-    minutos += entry.minutes;
+    if (typeof entry.minutes === 'number') {
+      minutos += entry.minutes;
+      conMinutos += 1;
+    }
+    // Items written before D-024 have no declaredBy at all; they count as not declared.
+    declared[entry.declaredBy ?? 'sin_dato'] += 1;
     if (entry.loggedBy === 'secundario') secundario += 1;
     else principal += 1;
   }
@@ -168,6 +183,8 @@ export function familyIndicators(
     entradas: input.logEntries.length,
     diasDistintos: days.size,
     minutosTotales: minutos,
+    entradasConMinutos: conMinutos,
+    entradasPorDeclarado: declared,
     entradasPorTipo: byKind,
     diasConLectura: readingDays.size,
     entradasCuidadorPrincipal: principal,
@@ -197,6 +214,8 @@ export interface CohortIndicators {
   readonly retencionPorSemana: ReadonlyArray<{ semana: number; alcanzaron: number; activas: number; tasa: number | null }>;
   readonly entradasTotales: number;
   readonly minutosTotales: number;
+  readonly entradasConMinutos: number;
+  readonly entradasPorDeclarado: Readonly<Record<DeclaredByBucket, number>>;
   readonly entradasPorTipo: Readonly<Record<LogActivityKind, number>>;
   readonly enviosRealizados: number;
   readonly tasaEntrega: number | null;
@@ -278,6 +297,13 @@ export function cohortIndicators(
     return { semana, alcanzaron, activas, tasa: ratio(activas, alcanzaron) };
   });
 
+  const byDeclared: Record<DeclaredByBucket, number> = { ...EMPTY_DECLARED };
+  for (const family of families) {
+    for (const bucket of Object.keys(byDeclared) as DeclaredByBucket[]) {
+      byDeclared[bucket] += family.entradasPorDeclarado[bucket];
+    }
+  }
+
   const responseHours = families.flatMap((family) => family.horasPrimeraRespuesta);
   const enviados = families.reduce((total, f) => total + f.enviosRealizados, 0);
   const entregados = families.reduce((total, f) => total + f.enviosEntregados, 0);
@@ -298,6 +324,8 @@ export function cohortIndicators(
     retencionPorSemana,
     entradasTotales: families.reduce((total, f) => total + f.entradas, 0),
     minutosTotales: families.reduce((total, f) => total + f.minutosTotales, 0),
+    entradasConMinutos: families.reduce((total, f) => total + f.entradasConMinutos, 0),
+    entradasPorDeclarado: byDeclared,
     entradasPorTipo: byKind,
     enviosRealizados: enviados,
     tasaEntrega: ratio(entregados, enviados),

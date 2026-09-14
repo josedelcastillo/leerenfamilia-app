@@ -13,7 +13,7 @@ const CUTOFF = isoDate('2026-10-27');
 function entry(overrides: Partial<LogEntry> = {}): LogEntry {
   return {
     clientId: 'c1', date: addDays(ANCHOR, 2), kind: 'lectura', minutes: 10,
-    resourceId: 's01-lectura', note: null, loggedBy: 'principal', ...overrides,
+    resourceId: 's01-lectura', note: null, loggedBy: 'principal', declaredBy: null, ...overrides,
   };
 }
 
@@ -199,6 +199,27 @@ describe('auditoría', () => {
     const rows = parse(csv);
     assert.equal(rows[1]![0], '2026-09-05T00:00:00.000Z');
     assert.equal(rows[2]![rows[0]!.indexOf('accion')], 'exportar_datos');
+  });
+});
+
+describe('bitácora con registro en un toque', () => {
+  test('deja vacía la duración no reportada y separa declarado_por de registrado_por', () => {
+    const fam = family({ logEntries: [entry({ minutes: null, declaredBy: 'otra' })] });
+    const rows = parse(buildCsv('bitacora', bundle({ families: [fam] })));
+    const header = rows[0]!;
+    const row = rows[1]!;
+    assert.equal(row[header.indexOf('minutos')], '');
+    assert.equal(row[header.indexOf('declarado_por')], 'otra');
+    assert.equal(row[header.indexOf('registrado_por')], 'principal');
+  });
+
+  test('el resumen dice cuántas entradas reportaron minutos', () => {
+    const fam = family({ logEntries: [entry({ clientId: 'a', minutes: 5 }), entry({ clientId: 'b', minutes: null })] });
+    const rows = parse(buildCsv('resumen', bundle({ families: [fam] })));
+    const byName = new Map(rows.map((r) => [r[0], r[1]]));
+    assert.equal(byName.get('entradas_con_minutos'), '1');
+    assert.equal(byName.get('minutos_bitacora'), '5');
+    assert.equal(byName.get('declarado_sin_dato'), '2');
   });
 });
 

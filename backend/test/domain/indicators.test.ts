@@ -26,6 +26,7 @@ function entryOnWeek(week: number, overrides: Partial<LogEntry> = {}): LogEntry 
     resourceId: null,
     note: null,
     loggedBy: 'principal',
+    declaredBy: null,
     ...overrides,
   };
 }
@@ -316,5 +317,38 @@ describe('indicadores de la cohorte', () => {
     ]);
     assert.equal(result.familiasConBaja, 1);
     assert.equal(result.tasaBaja, 0.5);
+  });
+});
+
+describe('minutos opcionales (D-024)', () => {
+  test('suma solo los minutos reportados y cuenta cuántas entradas los reportaron', () => {
+    const result = familyIndicators(
+      input({ logEntries: [entryOnWeek(1, { minutes: 10 }), entryOnWeek(2, { minutes: null })] }),
+      CUTOFF,
+      WEEKS,
+    );
+    assert.equal(result.entradas, 2);
+    assert.equal(result.minutosTotales, 10);
+    assert.equal(result.entradasConMinutos, 1);
+  });
+
+  test('una entrada sin minutos igual cuenta la semana como activa', () => {
+    const result = familyIndicators(input({ logEntries: [entryOnWeek(1, { minutes: null })] }), CUTOFF, WEEKS);
+    assert.equal(result.semanasActivas, 1);
+  });
+});
+
+describe('quién hizo la actividad, según la familia', () => {
+  test('cuenta por declaración, aparte del cuidador que firmó el registro', () => {
+    const inputs = [input({
+      logEntries: [
+        entryOnWeek(1, { declaredBy: 'papa', loggedBy: 'principal' }),
+        entryOnWeek(2, { declaredBy: null }),
+      ],
+    })];
+    const perFamily = inputs.map((i) => familyIndicators(i, CUTOFF, WEEKS));
+    const cohort = cohortIndicators(perFamily, inputs, WEEKS);
+    assert.deepEqual(cohort.entradasPorDeclarado, { mama: 0, papa: 1, otra: 0, sin_dato: 1 });
+    assert.equal(cohort.entradasConMinutos, 2);
   });
 });
