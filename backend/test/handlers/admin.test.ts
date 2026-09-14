@@ -10,7 +10,9 @@ import {
   buildFamilyRows,
   buildInbox,
   closeFeedbackAs,
+  listRecentAudit,
   openFamilyDetail,
+  recentAuditMonths,
   replyToFeedback,
 } from '../../src/handlers/admin/logic.ts';
 import type {
@@ -109,6 +111,9 @@ class FakeAdminStore implements AdminStore {
   }
   async writeAudit(entry: AuditEntry): Promise<void> {
     this.audit.push(entry);
+  }
+  async listAudit(months: readonly string[]): Promise<AuditEntry[]> {
+    return this.audit.filter((entry) => months.includes(entry.at.slice(0, 7)));
   }
 }
 
@@ -403,5 +408,60 @@ describe('cerrar feedback', () => {
       () => closeFeedbackAs(store, { sub: 'x', email: 'x@x', groups: [] }, { familyId: 'fam-1', feedbackId: 'fb-1' }, NOW),
       DomainError,
     );
+  });
+});
+
+describe('auditoría de accesos (pantalla 14)', () => {
+  function audited(at: string): AuditEntry {
+    return { gestorSub: 's', gestorEmail: 'maria.p@leerenfamilia.pe', action: 'ver_detalle_familia', familyId: 'fam-1', at };
+  }
+
+  test('lee este mes y el anterior, del más nuevo al más viejo', async () => {
+    store.audit = [
+      audited('2026-08-31T10:00:00.000Z'),
+      audited('2026-09-20T09:00:00.000Z'),
+      audited('2026-09-19T17:00:00.000Z'),
+      audited('2026-07-01T10:00:00.000Z'),
+    ];
+    const entries = await listRecentAudit(store, GESTOR, TODAY);
+    assert.deepEqual(entries.map((e) => e.at), [
+      '2026-09-20T09:00:00.000Z', '2026-09-19T17:00:00.000Z', '2026-08-31T10:00:00.000Z',
+    ]);
+  });
+
+  test('cruza el cambio de año', () => {
+    assert.deepEqual(recentAuditMonths(isoDate('2026-01-15'), 2), ['2026-01', '2025-12']);
+  });
+
+  test('rechaza a quien no es gestor', async () => {
+    await assert.rejects(
+      () => listRecentAudit(store, { ...GESTOR, groups: [] }, TODAY),
+      (e: unknown) => e instanceof DomainError && e.code === 'forbidden',
+    );
+  });
+});
+
+describe('ficha: notas sin consentimiento (pantalla 11)', () => {
+  test('cuenta las notas aunque no las muestre', async () => {
+    store.families.set('fam-1', family({
+      logEntries: [entry({ note: 'algo privado' }), entry({ note: null }), entry({ note: 'otra' })],
+    }));
+    const detail = await openFamilyDetail(store, GESTOR, 'fam-1', TODAY, NOW);
+    assert.equal(detail.notesVisible, false);
+    assert.equal(detail.notesCount, 2);
+    assert.equal(detail.entries.every((e) => e.note === null), true);
+  });
+});
+
+describe('listado: datos para estado y cuidadores (pantalla 10)', () => {
+  test('lleva la fecha del último registro, el total y la relación de cada cuidador', () => {
+    const rows = buildFamilyRows([family({
+      logEntries: [entry({ date: isoDate('2026-09-10') }), entry({ date: isoDate('2026-09-19') })],
+      caregivers: [{ msisdn: '+51987654321', role: 'principal', optIn: true, lastInboundAt: null, relation: 'mama' }],
+    })], PROGRAM, TODAY);
+    assert.equal(rows[0]?.lastEntryDate, '2026-09-19');
+    assert.equal(rows[0]?.totalEntries, 2);
+    assert.deepEqual(rows[0]?.caregivers, [{ role: 'principal', relation: 'mama', optIn: true }]);
+    assert.equal(JSON.stringify(rows).includes('+51'), false, 'el listado no lleva teléfonos');
   });
 });

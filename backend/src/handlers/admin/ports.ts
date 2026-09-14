@@ -48,6 +48,8 @@ export interface AdminStore {
   /** Conditional write. False means this reply was already notified. */
   claimReplyNotification(feedbackId: string, replyIndex: number, at: Date): Promise<boolean>;
   writeAudit(entry: AuditEntry): Promise<void>;
+  /** Audit entries of the given `yyyy-mm` months, in any order. */
+  listAudit(months: readonly string[]): Promise<AuditEntry[]>;
 }
 
 export interface Gestor {

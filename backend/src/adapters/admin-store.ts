@@ -189,4 +189,17 @@ export class AdminDataStore implements AdminStore {
       }),
     );
   }
+
+  /** One Query per month partition. The audit PK is AUDIT#yyyy-mm, so no Scan is needed. */
+  async listAudit(months: readonly string[]): Promise<AuditEntry[]> {
+    const pages = await Promise.all(months.map((month) => this.#queryAll({ pk: KEY.auditMonth(month) })));
+    return pages.flat().map((item) => ({
+      gestorSub: String(item['gestorSub']),
+      gestorEmail: String(item['gestorEmail'] ?? ''),
+      action: item['action'] as AuditEntry['action'],
+      familyId: typeof item['familyId'] === 'string' ? item['familyId'] : null,
+      at: String(item['at']),
+      ...(typeof item['detail'] === 'string' ? { detail: item['detail'] } : {}),
+    }));
+  }
 }

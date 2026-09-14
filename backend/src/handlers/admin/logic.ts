@@ -6,7 +6,7 @@ import { programWeek } from '../../domain/schedule.ts';
 import { chooseReplyChannel, type ReplyChannel } from '../../domain/service-window.ts';
 import type { Msisdn } from '../../domain/msisdn.ts';
 import type { WhatsAppProvider } from '../../adapters/whatsapp/index.ts';
-import type { AdminStore, FamilyRecord, Gestor, InboxFilter, ProgramSummary } from './ports.ts';
+import type { AdminStore, AuditEntry, FamilyRecord, Gestor, InboxFilter, ProgramSummary } from './ports.ts';
 
 export const GESTORES_GROUP = 'gestores';
 
@@ -33,6 +33,14 @@ export interface FamilyRow {
   readonly openFeedback: number;
   readonly caregiversOptedIn: number;
   readonly deliveries: number;
+  readonly lastEntryDate: string | null;
+  readonly totalEntries: number;
+  /** Role and declared relation only: the list never carries phone numbers. */
+  readonly caregivers: ReadonlyArray<{
+    readonly role: 'principal' | 'secundario';
+    readonly relation: FamilyRecord['caregivers'][number]['relation'];
+    readonly optIn: boolean;
+  }>;
 }
 
 export function withinLastDays(entries: readonly LogEntry[], today: IsoDate, days: number): LogEntry[] {
@@ -73,6 +81,9 @@ export function buildFamilyRows(
         openFeedback: family.feedback.filter(isAwaitingReply).length,
         caregiversOptedIn: family.caregivers.filter((c) => c.optIn).length,
         deliveries: family.deliveredIsoWeeks.length,
+        lastEntryDate: lastEntry,
+        totalEntries: family.logEntries.length,
+        caregivers: family.caregivers.map(({ role, relation, optIn }) => ({ role, relation, optIn })),
       };
     })
     // Families needing attention first: open feedback, then least recent activity.
@@ -93,6 +104,11 @@ export interface FamilyDetail {
   readonly summaryLast7Days: LogSummary;
   readonly entries: ReadonlyArray<Omit<LogEntry, 'note'> & { note: string | null }>;
   readonly notesVisible: boolean;
+  /**
+   * How many entries carry a note. Shown even without consent — it says that notes exist, never
+   * what they say — so the manager understands why the column is empty (rule 8, screen 11).
+   */
+  readonly notesCount: number;
   readonly feedback: readonly Feedback[];
   readonly caregivers: FamilyRecord['caregivers'];
 }
@@ -142,6 +158,7 @@ export async function openFamilyDetail(
       note: notesVisible ? entry.note : null,
     })),
     notesVisible,
+    notesCount: family.logEntries.filter((entry) => entry.note !== null && entry.note !== '').length,
     feedback: [...family.feedback].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     caregivers: family.caregivers,
   };
@@ -279,4 +296,27 @@ export async function closeFeedbackAs(
   const closed = closeFeedback(existing, now.toISOString(), gestor.sub);
   await store.saveFeedback(input.familyId, family.programId, closed);
   return closed;
+}
+
+/** The months the audit screen reads, newest first: this one and the ones before it. */
+export function recentAuditMonths(today: IsoDate, count: number): string[] {
+  const [year, month] = today.split('-').map(Number) as [number, number];
+  return Array.from({ length: count }, (_, index) =>
+    new Date(Date.UTC(year, month - 1 - index, 1)).toISOString().slice(0, 7),
+  );
+}
+
+/**
+ * The access log as a screen (14). The full log is still one export away (`auditoria.csv`); this
+ * shows the last two months so it answers "who opened what, recently" without a Scan.
+ */
+export async function listRecentAudit(
+  store: AdminStore,
+  gestor: Gestor,
+  today: IsoDate,
+  months = 2,
+): Promise<AuditEntry[]> {
+  assertIsGestor(gestor);
+  const entries = await store.listAudit(recentAuditMonths(today, months));
+  return [...entries].sort((a, b) => b.at.localeCompare(a.at));
 }
