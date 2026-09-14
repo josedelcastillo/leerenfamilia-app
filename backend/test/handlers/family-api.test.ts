@@ -201,6 +201,20 @@ describe('sincronización de la cola', () => {
     assert.equal(store.logs[0]?.declaredBy, 'mama');
   });
 
+  test('rechaza minutos que no son un número, en vez de convertirlos', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      logItem({ clientId: 'texto', minutes: '10' }),
+      logItem({ clientId: 'booleano', minutes: true }),
+    ], TODAY, NOW);
+    assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado']);
+    assert.equal(store.logs.length, 0);
+  });
+
+  test('rechaza un declaredBy que no es texto, en vez de tomarlo como no declarado', async () => {
+    const [result] = await applySync(store, store.context, MOTHER, [logItem({ declaredBy: true })], TODAY, NOW);
+    assert.equal(result?.status, 'rechazado');
+  });
+
   test('accepts entries backdated by the queue, and rejects future ones', async () => {
     const results = await applySync(store, store.context, MOTHER, [
       logItem({ clientId: 'a', date: '2026-09-16' }),

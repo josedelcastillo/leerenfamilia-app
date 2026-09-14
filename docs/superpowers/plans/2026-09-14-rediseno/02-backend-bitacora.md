@@ -218,6 +218,20 @@ Dentro de `describe('sincronización de la cola', …)`, después del test
     assert.equal(store.logs[0]?.minutes, 5);
     assert.equal(store.logs[0]?.declaredBy, 'mama');
   });
+
+  test('rechaza minutos que no son un número, en vez de convertirlos', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      logItem({ clientId: 'texto', minutes: '10' }),
+      logItem({ clientId: 'booleano', minutes: true }),
+    ], TODAY, NOW);
+    assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado']);
+    assert.equal(store.logs.length, 0);
+  });
+
+  test('rechaza un declaredBy que no es texto, en vez de tomarlo como no declarado', async () => {
+    const [result] = await applySync(store, store.context, MOTHER, [logItem({ declaredBy: true })], TODAY, NOW);
+    assert.equal(result?.status, 'rechazado');
+  });
 ```
 
 - [ ] **Step 2: Correr y ver el fallo**
@@ -231,12 +245,17 @@ En `applySync`, dentro de la rama `bitacora`, reemplace las líneas de `minutes`
 que se pasa a `parseLogEntry`:
 
 ```ts
-            minutes:
-              item['minutes'] === null || item['minutes'] === undefined ? null : Number(item['minutes']),
+            // Passed through untouched, not coerced: parseLogEntry's Number.isInteger rejects a
+            // string or boolean, where Number() would have turned "10" or true into a duration.
+            minutes: item['minutes'] === undefined ? null : (item['minutes'] as number | null),
             resourceId: typeof item['resourceId'] === 'string' ? item['resourceId'] : null,
             note: typeof item['note'] === 'string' ? item['note'] : null,
             loggedBy: role,
-            declaredBy: typeof item['declaredBy'] === 'string' ? item['declaredBy'] : null,
+            // A non-string is a malformed payload, not "the family did not say": String() makes
+            // it fail the domain's enum check instead of silently becoming null.
+            declaredBy: item['declaredBy'] === undefined || item['declaredBy'] === null
+              ? null
+              : String(item['declaredBy']),
 ```
 
 - [ ] **Step 4: Tests en verde**

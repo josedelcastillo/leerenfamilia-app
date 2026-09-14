@@ -44,12 +44,17 @@ export async function applySync(
             clientId: item.clientId,
             date: String(item['date']),
             kind: String(item['kind_actividad']),
-            minutes:
-              item['minutes'] === null || item['minutes'] === undefined ? null : Number(item['minutes']),
+            // Passed through untouched, not coerced: parseLogEntry's Number.isInteger rejects a
+            // string or boolean, where Number() would have turned "10" or true into a duration.
+            minutes: item['minutes'] === undefined ? null : (item['minutes'] as number | null),
             resourceId: typeof item['resourceId'] === 'string' ? item['resourceId'] : null,
             note: typeof item['note'] === 'string' ? item['note'] : null,
             loggedBy: role,
-            declaredBy: typeof item['declaredBy'] === 'string' ? item['declaredBy'] : null,
+            // A non-string is a malformed payload, not "the family did not say": String() makes
+            // it fail the domain's enum check instead of silently becoming null.
+            declaredBy: item['declaredBy'] === undefined || item['declaredBy'] === null
+              ? null
+              : String(item['declaredBy']),
           },
           today,
         );
