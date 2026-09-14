@@ -1,3 +1,17 @@
+:root {
+  --g-paper: #F6F4F9;
+  --g-surface: #FFFFFF;
+  --g-line: #E6E0EC;
+  --g-line-soft: #EFEAF3;
+  --g-line-strong: #DED6E6;
+  --g-head: #FAF8FC;
+  --g-ink-soft: #554A66;
+  --g-ink-faint: #726A7F;
+  --g-dark: #241A33;
+  --g-purple: #7B4C99;
+  --g-select: #F6F0FA;
+}
+
 /*
  * Manager surface. Density over decoration: this is a working tool for five people who need to see
  * who needs attention this week, not a marketing page.
