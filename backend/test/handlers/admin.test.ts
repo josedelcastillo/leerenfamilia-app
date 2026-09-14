@@ -48,6 +48,7 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
     resourceId: null,
     note: null,
     loggedBy: 'principal',
+    declaredBy: null,
     ...overrides,
   };
 }

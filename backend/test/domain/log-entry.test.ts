@@ -109,7 +109,7 @@ describe('summarize', () => {
   function entry(overrides: Partial<LogEntry> = {}): LogEntry {
     return {
       clientId: 'c1', date: isoDate('2026-09-19'), kind: 'lectura',
-      minutes: 10, resourceId: null, note: null, loggedBy: 'principal',
+      minutes: 10, resourceId: null, note: null, loggedBy: 'principal', declaredBy: null,
       ...overrides,
     };
   }

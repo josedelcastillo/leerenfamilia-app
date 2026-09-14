@@ -68,7 +68,7 @@ export function buildFamilyRows(
         programWeek: week,
         finished: week > program.programWeeks,
         logEntriesLast7Days: recent.length,
-        minutesLast7Days: recent.reduce((total, entry) => total + entry.minutes, 0),
+        minutesLast7Days: recent.reduce((total, entry) => total + (entry.minutes ?? 0), 0),
         lastActivityAt: family.lastAccessAt ?? lastEntry,
         openFeedback: family.feedback.filter(isAwaitingReply).length,
         caregiversOptedIn: family.caregivers.filter((c) => c.optIn).length,

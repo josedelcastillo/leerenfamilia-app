@@ -12,7 +12,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { addDays, isoDate, isoWeek, type IsoDate } from '../src/domain/dates.ts';
 import { createFeedback, type Feedback } from '../src/domain/feedback.ts';
-import type { LogActivityKind, LogEntry } from '../src/domain/log-entry.ts';
+import type { DeclaredBy, LogActivityKind, LogEntry } from '../src/domain/log-entry.ts';
 import type { DeliverySummary, FamilyIndicatorInput } from '../src/domain/indicators.ts';
 import { DATASETS, buildCsv, type AuditRow, type ExportBundle } from '../src/handlers/admin/export.ts';
 
@@ -82,10 +82,12 @@ for (const [index, profile] of PROFILES.entries()) {
           clientId: `${profile.id}-s${week}-${session}`,
           date: addDays(anchorDate, dayOffset),
           kind,
-          minutes: pick([5, 5, 10, 10, 15, 20, 30]),
+          // About a third of entries are logged in one tap, with no duration (D-024).
+          minutes: pick<number | null>([null, null, 2, 5, 5, 10, 10]),
           resourceId: `s${String(week).padStart(2, '0')}-${kind}`,
           note: authorized && random() < 0.3 ? 'Nota de ejemplo escrita por el cuidador' : null,
           loggedBy: twoCaregivers && random() < 0.4 ? 'secundario' : 'principal',
+          declaredBy: pick<DeclaredBy | null>([null, null, 'mama', 'mama', 'papa', 'otra']),
         });
       }
     }
