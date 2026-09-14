@@ -35,7 +35,7 @@ export interface FamilyRow {
   readonly deliveries: number;
 }
 
-function withinLastDays(entries: readonly LogEntry[], today: IsoDate, days: number): LogEntry[] {
+export function withinLastDays(entries: readonly LogEntry[], today: IsoDate, days: number): LogEntry[] {
   const cutoff = new Date(`${today}T00:00:00.000Z`).getTime() - (days - 1) * 86_400_000;
   return entries.filter((entry) => new Date(`${entry.date}T00:00:00.000Z`).getTime() >= cutoff);
 }
