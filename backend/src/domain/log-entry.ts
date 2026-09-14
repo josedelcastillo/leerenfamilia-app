@@ -17,22 +17,35 @@ export const LOG_ACTIVITY_KINDS: readonly LogActivityKind[] = [
 
 export type LoggedBy = 'principal' | 'secundario';
 
+/**
+ * Who the caregiver says did the activity. Self-reported and optional, and deliberately separate
+ * from `loggedBy`: that one comes from the signed token and says whose phone logged the entry; this
+ * one is what the family tells us. A father reading while the mother's phone logs is exactly the
+ * case where the two differ (D-024).
+ */
+export type DeclaredBy = 'mama' | 'papa' | 'otra';
+
+export const DECLARED_BY: readonly DeclaredBy[] = ['mama', 'papa', 'otra'];
+
 export interface LogEntryInput {
   /** Generated on the device. It is what makes a queued retry safe to replay. */
   readonly clientId: string;
   readonly date: string;
   readonly kind: string;
-  readonly minutes: number;
+  /** Null or absent when the family logged in one tap and did not say how long (D-024). */
+  readonly minutes?: number | null;
   readonly resourceId?: string | null;
   readonly note?: string | null;
   readonly loggedBy: string;
+  readonly declaredBy?: string | null;
 }
 
 export interface LogEntry {
   readonly clientId: string;
   readonly date: IsoDate;
   readonly kind: LogActivityKind;
-  readonly minutes: number;
+  /** Null when not reported. Never defaulted: an invented duration would corrupt L2. */
+  readonly minutes: number | null;
   readonly resourceId: string | null;
   /**
    * Free text from the caregiver. Sensitive: it describes the domestic routine of a household with
@@ -41,6 +54,7 @@ export interface LogEntry {
    */
   readonly note: string | null;
   readonly loggedBy: LoggedBy;
+  readonly declaredBy: DeclaredBy | null;
 }
 
 /** A single session, not a whole day. Anything outside this is a typo or a misunderstanding. */
@@ -71,7 +85,11 @@ export function parseLogEntry(input: LogEntryInput, today: IsoDate): LogEntry {
     invalid(`Tipo de actividad no reconocido: ${String(input.kind)}`);
   }
 
-  if (!Number.isInteger(input.minutes) || input.minutes < MIN_MINUTES || input.minutes > MAX_MINUTES) {
+  const minutes = input.minutes ?? null;
+  if (
+    minutes !== null &&
+    (!Number.isInteger(minutes) || minutes < MIN_MINUTES || minutes > MAX_MINUTES)
+  ) {
     invalid(`La duración debe ser un número entero de ${MIN_MINUTES} a ${MAX_MINUTES} minutos`);
   }
 
@@ -88,20 +106,28 @@ export function parseLogEntry(input: LogEntryInput, today: IsoDate): LogEntry {
     ? input.resourceId
     : null;
 
+  const declared = typeof input.declaredBy === 'string' ? input.declaredBy.trim() : '';
+  if (declared !== '' && !DECLARED_BY.includes(declared as DeclaredBy)) {
+    invalid(`Quién hizo la actividad no es una opción válida: ${declared}`);
+  }
+
   return {
     clientId: input.clientId.trim(),
     date,
     kind: input.kind as LogActivityKind,
-    minutes: input.minutes,
+    minutes,
     resourceId,
     note: note === '' ? null : note,
     loggedBy: input.loggedBy,
+    declaredBy: declared === '' ? null : (declared as DeclaredBy),
   };
 }
 
 export interface LogSummary {
   readonly entries: number;
+  /** Sum of the durations that were reported. Entries without one add nothing (D-024). */
   readonly totalMinutes: number;
+  readonly entriesWithMinutes: number;
   readonly byKind: Readonly<Record<LogActivityKind, number>>;
   readonly distinctDays: number;
 }
@@ -119,12 +145,16 @@ export function summarize(entries: readonly LogEntry[]): LogSummary {
   };
   const days = new Set<string>();
   let totalMinutes = 0;
+  let entriesWithMinutes = 0;
 
   for (const entry of entries) {
     byKind[entry.kind] += 1;
-    totalMinutes += entry.minutes;
+    if (typeof entry.minutes === 'number') {
+      totalMinutes += entry.minutes;
+      entriesWithMinutes += 1;
+    }
     days.add(entry.date);
   }
 
-  return { entries: entries.length, totalMinutes, byKind, distinctDays: days.size };
+  return { entries: entries.length, totalMinutes, entriesWithMinutes, byKind, distinctDays: days.size };
 }

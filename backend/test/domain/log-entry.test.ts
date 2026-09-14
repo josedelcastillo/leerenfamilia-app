@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { isoDate } from '../../src/domain/dates.ts';
 import { DomainError } from '../../src/domain/errors.ts';
 import {
+  DECLARED_BY,
   LOG_ACTIVITY_KINDS,
   MAX_MINUTES,
   MAX_NOTE_LENGTH,
@@ -117,6 +118,7 @@ describe('summarize', () => {
     assert.deepEqual(summarize([]), {
       entries: 0,
       totalMinutes: 0,
+      entriesWithMinutes: 0,
       byKind: { lectura: 0, cancion: 0, juego: 0, conversacion: 0 },
       distinctDays: 0,
     });
@@ -151,5 +153,45 @@ describe('summarize', () => {
   test('carries no free text, so an aggregate can be shown without consent to notes', () => {
     const summary = summarize([entry({ note: 'la rutina de la casa' })]);
     assert.equal(JSON.stringify(summary).includes('rutina'), false);
+  });
+});
+
+describe('registro en un toque (D-024)', () => {
+  test('acepta una entrada sin minutos y la guarda como null', () => {
+    assert.equal(parseLogEntry(input({ minutes: null }), TODAY).minutes, null);
+    const { minutes: _omitted, ...withoutMinutes } = input();
+    assert.equal(parseLogEntry(withoutMinutes, TODAY).minutes, null);
+  });
+
+  test('una duración reportada sigue validándose igual', () => {
+    for (const minutes of [0, MAX_MINUTES + 1, 2.5]) {
+      assert.throws(() => parseLogEntry(input({ minutes }), TODAY), DomainError);
+    }
+  });
+
+  test('guarda quién dice la familia que hizo la actividad, aparte de quién registró', () => {
+    const entry = parseLogEntry(input({ declaredBy: 'papa', loggedBy: 'principal' }), TODAY);
+    assert.equal(entry.declaredBy, 'papa');
+    assert.equal(entry.loggedBy, 'principal');
+  });
+
+  test('declaredBy es null si no viene o viene vacío, y rechaza lo que no conoce', () => {
+    assert.equal(parseLogEntry(input(), TODAY).declaredBy, null);
+    assert.equal(parseLogEntry(input({ declaredBy: '' }), TODAY).declaredBy, null);
+    assert.throws(() => parseLogEntry(input({ declaredBy: 'abuela' }), TODAY), DomainError);
+    assert.deepEqual(DECLARED_BY, ['mama', 'papa', 'otra']);
+  });
+});
+
+describe('summarize con minutos opcionales', () => {
+  test('suma solo los minutos reportados y dice cuántas entradas los reportaron', () => {
+    const base = parseLogEntry(input(), TODAY);
+    const summary = summarize([
+      { ...base, clientId: 'a', minutes: 10 },
+      { ...base, clientId: 'b', minutes: null },
+    ]);
+    assert.equal(summary.entries, 2);
+    assert.equal(summary.totalMinutes, 10);
+    assert.equal(summary.entriesWithMinutes, 1);
   });
 });
