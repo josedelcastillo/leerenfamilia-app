@@ -62,7 +62,7 @@ function family(overrides: Partial<FamilyRecord> = {}): FamilyRecord {
     babyName: 'Mateo',
     freeTextNotesAuthorized: false,
     caregivers: [
-      { msisdn: '+51987654321', role: 'principal', optIn: true, lastInboundAt: null },
+      { msisdn: '+51987654321', role: 'principal', optIn: true, lastInboundAt: null, relation: null },
     ],
     logEntries: [],
     feedback: [],
@@ -307,7 +307,7 @@ describe('respuesta del gestor', () => {
     // Free, and no template approval needed.
     store.families.set('fam-1', family({
       feedback: [openFeedback()],
-      caregivers: [{ msisdn: '+51987654321', role: 'principal', optIn: true, lastInboundAt: NOW.getTime() - 3600_000 }],
+      caregivers: [{ msisdn: '+51987654321', role: 'principal', optIn: true, lastInboundAt: NOW.getTime() - 3600_000, relation: null }],
     }));
     const outcome = await reply();
     assert.equal(outcome.channel, 'mensaje_libre');
@@ -365,7 +365,7 @@ describe('respuesta del gestor', () => {
   test('guarda la respuesta aunque la familia se haya dado de baja', async () => {
     store.families.set('fam-1', family({
       feedback: [openFeedback()],
-      caregivers: [{ msisdn: '+51987654321', role: 'principal', optIn: false, lastInboundAt: null }],
+      caregivers: [{ msisdn: '+51987654321', role: 'principal', optIn: false, lastInboundAt: null, relation: null }],
     }));
     const outcome = await reply();
     assert.equal(outcome.notified, false);

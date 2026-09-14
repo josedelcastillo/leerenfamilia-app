@@ -1,6 +1,7 @@
 import type { IsoDate } from '../../domain/dates.ts';
 import { isoDate } from '../../domain/dates.ts';
 import { DomainError } from '../../domain/errors.ts';
+import { DECLARED_BY, type DeclaredBy } from '../../domain/log-entry.ts';
 import { toE164, type Msisdn } from '../../domain/msisdn.ts';
 import { resolveAnchorDate, type ScheduleAnchorPolicy } from '../../domain/schedule.ts';
 
@@ -15,7 +16,12 @@ export interface EnrollmentRequest {
   readonly programId: string;
   readonly clinic: string;
   readonly baby: { readonly name: string; readonly birthDate: string };
-  readonly caregivers: ReadonlyArray<{ readonly msisdn: string; readonly role: string }>;
+  readonly caregivers: ReadonlyArray<{
+    readonly msisdn: string;
+    readonly role: string;
+    /** "¿Quién eres en casa?" on the activation screen. Optional. */
+    readonly relation?: string | null;
+  }>;
   readonly consent: {
     readonly accepted: boolean;
     readonly version: string;
@@ -31,7 +37,11 @@ export interface EnrollmentRecord {
   readonly anchorPolicy: ScheduleAnchorPolicy;
   readonly babyName: string;
   readonly babyBirthDate: IsoDate;
-  readonly caregivers: ReadonlyArray<{ readonly msisdn: Msisdn; readonly role: 'principal' | 'secundario' }>;
+  readonly caregivers: ReadonlyArray<{
+    readonly msisdn: Msisdn;
+    readonly role: 'principal' | 'secundario';
+    readonly relation: DeclaredBy | null;
+  }>;
   readonly consentVersion: string;
   readonly freeTextNotesAuthorized: boolean;
   readonly enrolledAt: string;
@@ -45,6 +55,14 @@ export interface EnrollmentStore {
 
 function invalid(message: string): never {
   throw new DomainError('invalid_enrollment', message);
+}
+
+function parseRelation(value: unknown): DeclaredBy | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string' && (DECLARED_BY as readonly string[]).includes(value)) {
+    return value as DeclaredBy;
+  }
+  invalid(`Relación con el bebé no reconocida: ${String(value)}`);
 }
 
 /**
@@ -95,6 +113,7 @@ export async function enroll(
     role: (index === 0 || caregiver.role === 'principal' ? 'principal' : 'secundario') as
       | 'principal'
       | 'secundario',
+    relation: parseRelation(caregiver.relation),
   }));
 
   if (new Set(caregivers.map((c) => c.msisdn)).size !== caregivers.length) {

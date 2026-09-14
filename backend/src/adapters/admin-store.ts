@@ -2,9 +2,12 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import type { IsoDate } from '../domain/dates.ts';
 import type { Feedback } from '../domain/feedback.ts';
-import type { LogEntry } from '../domain/log-entry.ts';
+import type { DeclaredBy, LogEntry } from '../domain/log-entry.ts';
 import type { AdminStore, AuditEntry, FamilyRecord, ProgramSummary } from '../handlers/admin/ports.ts';
 import { GSI1, KEY, SK, TTL_DAYS, ttlSeconds } from './keys.ts';
+
+const relationOf = (value: unknown): DeclaredBy | null =>
+  value === 'mama' || value === 'papa' || value === 'otra' ? value : null;
 
 export class AdminDataStore implements AdminStore {
   readonly #doc: DynamoDBDocumentClient;
@@ -73,6 +76,7 @@ export class AdminDataStore implements AdminStore {
           role: item['role'] === 'secundario' ? 'secundario' : 'principal',
           optIn: item['optIn'] === true,
           lastInboundAt: typeof item['lastInboundAt'] === 'number' ? item['lastInboundAt'] : null,
+          relation: relationOf(item['relation']),
         });
       } else if (sk.startsWith('LOG#')) {
         logEntries.push(item as unknown as LogEntry);

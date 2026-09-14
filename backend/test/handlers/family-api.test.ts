@@ -33,8 +33,8 @@ class FakeFamilyStore implements FamilyStore {
     babyName: 'Mateo',
     freeTextNotesAuthorized: false,
     caregivers: [
-      { msisdn: MOTHER, role: 'principal' },
-      { msisdn: FATHER, role: 'secundario' },
+      { msisdn: MOTHER, role: 'principal', relation: 'mama' },
+      { msisdn: FATHER, role: 'secundario', relation: null },
     ],
   };
   logs: LogEntry[] = [];
@@ -403,6 +403,24 @@ describe('registro por QR', () => {
       caregivers: [{ msisdn: '987654321', role: 'principal' }, { msisdn: '912345678', role: 'secundario' }],
     }));
     assert.deepEqual(record.caregivers.map((c) => c.role), ['principal', 'secundario']);
+  });
+
+  test('guarda la relación que declara el cuidador, y null si no la dice', async () => {
+    const { record } = await run(request({
+      caregivers: [
+        { msisdn: '987654321', role: 'principal', relation: 'mama' },
+        { msisdn: '912345678', role: 'secundario' },
+      ],
+    }));
+    assert.equal(record.caregivers[0]?.relation, 'mama');
+    assert.equal(record.caregivers[1]?.relation, null);
+  });
+
+  test('rechaza una relación que no conoce', async () => {
+    await assert.rejects(
+      () => run(request({ caregivers: [{ msisdn: '987654321', role: 'principal', relation: 'tía' }] })),
+      (e: unknown) => e instanceof DomainError && e.code === 'invalid_enrollment',
+    );
   });
 
   test('rejects an already registered number instead of merging families', async () => {

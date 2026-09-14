@@ -1,6 +1,6 @@
 import type { IsoDate } from '../../domain/dates.ts';
 import type { Feedback, FeedbackStatus } from '../../domain/feedback.ts';
-import type { LogEntry } from '../../domain/log-entry.ts';
+import type { DeclaredBy, LogEntry } from '../../domain/log-entry.ts';
 
 export interface ProgramSummary {
   readonly programId: string;
@@ -23,6 +23,7 @@ export interface FamilyRecord {
     readonly role: 'principal' | 'secundario';
     readonly optIn: boolean;
     readonly lastInboundAt: number | null;
+    readonly relation: DeclaredBy | null;
   }>;
   readonly logEntries: readonly LogEntry[];
   readonly feedback: readonly Feedback[];

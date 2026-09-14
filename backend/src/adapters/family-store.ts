@@ -8,7 +8,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import type { IsoDate } from '../domain/dates.ts';
 import type { Feedback } from '../domain/feedback.ts';
-import type { LogEntry, LoggedBy } from '../domain/log-entry.ts';
+import type { DeclaredBy, LogEntry, LoggedBy } from '../domain/log-entry.ts';
 import type { WeekContent } from '../content/weeks.ts';
 import type {
   FamilyContext,
@@ -21,6 +21,9 @@ import type {
   ProgramConfig,
 } from '../handlers/register/logic.ts';
 import { GSI1, KEY, SK } from './keys.ts';
+
+const relationOf = (value: unknown): DeclaredBy | null =>
+  value === 'mama' || value === 'papa' || value === 'otra' ? value : null;
 
 export class FamilyDataStore implements FamilyStore, EnrollmentStore {
   readonly #doc: DynamoDBDocumentClient;
@@ -67,6 +70,7 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
       .map((item) => ({
         msisdn: String(item['msisdn']),
         role: (item['role'] === 'secundario' ? 'secundario' : 'principal') as LoggedBy,
+        relation: relationOf(item['relation']),
       }));
 
     return {
@@ -241,6 +245,7 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
         programId: record.programId,
         msisdn: caregiver.msisdn,
         role: caregiver.role,
+        relation: caregiver.relation,
         optIn: true,
         optInAt: record.enrolledAt,
         optInSource: 'qr',

@@ -1,6 +1,6 @@
 import type { IsoDate } from '../domain/dates.ts';
 import type { Feedback, FeedbackType } from '../domain/feedback.ts';
-import type { LogEntry, LoggedBy } from '../domain/log-entry.ts';
+import type { DeclaredBy, LogEntry, LoggedBy } from '../domain/log-entry.ts';
 import type { WeekContent } from '../content/weeks.ts';
 
 export interface FamilyContext {
@@ -15,7 +15,11 @@ export interface FamilyContext {
    * the start because the notes describe the domestic routine of a household with a newborn.
    */
   readonly freeTextNotesAuthorized: boolean;
-  readonly caregivers: ReadonlyArray<{ readonly msisdn: string; readonly role: LoggedBy }>;
+  readonly caregivers: ReadonlyArray<{
+    readonly msisdn: string;
+    readonly role: LoggedBy;
+    readonly relation: DeclaredBy | null;
+  }>;
 }
 
 export interface ResourceAccess {
