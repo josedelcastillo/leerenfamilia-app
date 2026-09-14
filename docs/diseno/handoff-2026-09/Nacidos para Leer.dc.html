@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #140E20; }
+  a { color: #EE8C76; text-decoration: none; }
+  a:hover { color: #F5A893; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</helmet>
+<div style="font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; padding: 64px 56px 120px; display: flex; flex-direction: column; gap: 88px; color: #F0EDE6;">
+
+  <section style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="font-family: Literata, Georgia, serif; font-weight: 500; font-size: 30px; margin: 0; letter-spacing: -0.01em;">Familia — prioridad 1</h2>
+      <p style="margin: 0; font-size: 15px; color: #B1A3C0; max-width: 62ch;">Modo oscuro como primario. Una acción por pantalla, acción primaria en el tercio inferior, objetivos táctiles de 56px. La pantalla de registro es interactiva: toca el botón.</p>
+    </div>
+
+    <div style="display: flex; gap: 44px; flex-wrap: wrap;">
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="position: relative; width: 390px; height: 844px; background: #1B1229; border-radius: 40px; overflow: hidden; border: 1px solid #332748; display: flex; flex-direction: column;">
+          <div style="position: absolute; top: -190px; left: 50%; transform: translateX(-50%); width: 520px; height: 380px; background: radial-gradient(ellipse at center, rgba(218,95,75,0.30), rgba(218,95,75,0.06) 45%, rgba(218,95,75,0) 70%); pointer-events: none;"></div>
+          <div style="position: relative; padding: 66px 28px 0; display: flex; flex-direction: column; gap: 30px; flex: 1;">
+            <div style="font-family: Literata, Georgia, serif; font-size: 15px; color: #EE8C76; letter-spacing: 0.02em;">Nacidos para Leer</div>
+            <div style="font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 14px; color: #B1A3C0; margin-top: -22px;">un programa de Leer en Familia</div>
+            <h1 style="font-family: Literata, Georgia, serif; font-weight: 500; font-size: 31px; line-height: 1.28; margin: 0; letter-spacing: -0.015em; text-wrap: pretty; max-width: 22ch;">Ocho semanas leyendo con tu bebé, desde hoy.</h1>
+            <p style="font-family: Literata, Georgia, serif; font-size: 19px; line-height: 1.62; color: rgba(240,237,230,0.72); margin: 0; max-width: 34ch; text-wrap: pretty;">Cada semana recibes una actividad corta por WhatsApp. Aquí registras cuándo leyeron. Nada más.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 4px;">
+              <div style="font-size: 16px; color: #B1A3C0;">¿Quién eres en casa?</div>
+              <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="min-height: 56px; display: flex; align-items: center; padding: 0 20px; border-radius: 14px; background: #2A1E40; border: 1.5px solid #DA5F4B; box-shadow: inset 0 0 0 1px rgba(218,95,75,0.18); font-size: 18px;">Mamá</div>
+                <div style="min-height: 56px; display: flex; align-items: center; padding: 0 20px; border-radius: 14px; background: #2A1E40; border: 1.5px solid #3B2C55; font-size: 18px; color: rgba(240,237,230,0.8);">Papá</div>
+                <div style="min-height: 56px; display: flex; align-items: center; padding: 0 20px; border-radius: 14px; background: #2A1E40; border: 1.5px solid #3B2C55; font-size: 18px; color: rgba(240,237,230,0.8);">Otra persona que cuida</div>
+              </div>
+            </div>
+          </div>
+          <div style="position: relative; padding: 0 28px 40px; display: flex; flex-direction: column; gap: 18px;">
+            <div style="display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border-radius: 14px; background: rgba(42,30,64,0.7);">
+              <div style="width: 26px; height: 26px; flex: none; border-radius: 7px; background: #DA5F4B; display: flex; align-items: center; justify-content: center; color: #1B1229; font-weight: 700; font-size: 16px;">✓</div>
+              <div style="font-size: 15px; line-height: 1.5; color: rgba(240,237,230,0.82);">Acepto que Leer en Familia guarde mis registros de lectura para el piloto. Puedes cambiarlo cuando quieras.</div>
+            </div>
+            <div style="min-height: 60px; border-radius: 16px; background: #DA5F4B; color: #1B1229; font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Empezar</div>
+          </div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">1 — Activación por deep link</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="position: relative; width: 390px; height: 844px; background: #1B1229; border-radius: 40px; overflow: hidden; border: 1px solid #332748; display: flex; flex-direction: column;">
+          <div style="position: absolute; top: -230px; left: 50%; transform: translateX(-50%); width: 560px; height: 420px; background: radial-gradient(ellipse at center, rgba(218,95,75,0.26), rgba(218,95,75,0.05) 48%, rgba(218,95,75,0) 72%); pointer-events: none;"></div>
+          <div style="position: relative; padding: 62px 28px 0; display: flex; flex-direction: column; gap: 26px; flex: 1;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="font-size: 15px; color: #B1A3C0;">Semana {{ semana }} de 8</div>
+              <div style="display: flex; gap: 6px;">
+                <sc-for list="{{ marcas }}" as="m" hint-placeholder-count="8">
+                  <div style="width: 22px; height: 3px; border-radius: 2px; background: {{ m.color }};"></div>
+                </sc-for>
+              </div>
+            </div>
+            <h1 style="font-family: Literata, Georgia, serif; font-weight: 500; font-size: 27px; line-height: 1.34; margin: 0; letter-spacing: -0.01em; max-width: 26ch; text-wrap: pretty;">Tu bebé reconoce tu voz antes que tu cara.</h1>
+            <p style="font-family: Literata, Georgia, serif; font-size: 19px; line-height: 1.68; color: rgba(240,237,230,0.74); margin: 0; max-width: 34ch; text-wrap: pretty;">No importa qué leas esta semana — importa que te escuche. Puede ser el cuento del kit, una canción o la etiqueta del cereal.</p>
+            <div style="height: 1px; background: #332748;"></div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-family: Literata, Georgia, serif; font-size: 17px; color: rgba(240,237,230,0.9);">Esta semana, en el kit</div>
+              <div style="font-size: 16px; line-height: 1.55; color: #B1A3C0;">Cuento: <span style="color: rgba(240,237,230,0.88);">Buenas noches a todos</span><br>Canción: <span style="color: rgba(240,237,230,0.88);">Duérmete mi niño</span></div>
+              <a href="#detalle" style="font-size: 16px; margin-top: 4px;">Ver la actividad completa</a>
+            </div>
+          </div>
+          <div style="position: relative; padding: 0 28px 40px;">
+            <div style="min-height: 64px; border-radius: 16px; background: #DA5F4B; color: #1B1229; font-size: 20px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Registrar lectura</div>
+          </div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">2 — Inicio semanal</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="position: relative; width: 390px; height: 844px; background: #1B1229; border-radius: 40px; overflow: hidden; border: 1px solid #332748; display: flex; flex-direction: column;">
+          <div style="position: absolute; top: -210px; left: 50%; transform: translateX(-50%); width: 540px; height: 400px; background: radial-gradient(ellipse at center, rgba(218,95,75,0.22), rgba(218,95,75,0.04) 48%, rgba(218,95,75,0) 72%); pointer-events: none;"></div>
+          <div style="position: relative; padding: 62px 28px 0; flex: 1; display: flex; flex-direction: column; gap: 24px;">{{ registroCuerpo }}</div>
+          <div style="position: relative; padding: 0 28px 40px;">{{ registroAccion }}</div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">3 — Registro de actividad (interactivo)</div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="position: relative; width: 390px; height: 844px; background: #1B1229; border-radius: 40px; overflow: hidden; border: 1px solid #332748; display: flex; flex-direction: column;">
+          <div style="position: absolute; top: -240px; left: 50%; transform: translateX(-50%); width: 560px; height: 420px; background: radial-gradient(ellipse at center, rgba(218,95,75,0.2), rgba(218,95,75,0.04) 48%, rgba(218,95,75,0) 72%); pointer-events: none;"></div>
+          <div style="position: relative; padding: 62px 28px 0; display: flex; flex-direction: column; gap: 26px; flex: 1; overflow: hidden;">
+            <div style="font-size: 15px; color: #B1A3C0;">Lo que han construido</div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <div style="font-family: Literata, Georgia, serif; font-size: 52px; line-height: 1; color: #EE8C76; letter-spacing: -0.02em;">{{ totalLecturas }}</div>
+              <div style="font-family: Literata, Georgia, serif; font-size: 21px; line-height: 1.4; color: rgba(240,237,230,0.88); max-width: 26ch;">{{ resumenSemanas }}</div>
+            </div>
+            <p style="font-family: Literata, Georgia, serif; font-size: 18px; line-height: 1.6; color: rgba(240,237,230,0.66); margin: 0; max-width: 33ch; text-wrap: pretty;">Cada línea es una vez que tu bebé escuchó tu voz. Ninguna se borra.</p>
+            <div style="height: 1px; background: #332748;"></div>
+            <div style="display: flex; flex-direction: column; gap: 0;">
+              <div style="display: flex; gap: 16px; padding: 15px 0; border-bottom: 1px solid rgba(51,39,72,0.9);">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: #DA5F4B; margin-top: 8px; flex: none;"></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px;">Ayer, 4:10 de la madrugada</div><div style="font-size: 14px; color: #B1A3C0;">Mamá, 5 minutos</div></div>
+              </div>
+              <div style="display: flex; gap: 16px; padding: 15px 0; border-bottom: 1px solid rgba(51,39,72,0.9);">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: rgba(218,95,75,0.55); margin-top: 8px; flex: none;"></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px;">Martes por la noche</div><div style="font-size: 14px; color: #B1A3C0;">Papá, 10 minutos</div></div>
+              </div>
+              <div style="display: flex; gap: 16px; padding: 15px 0; border-bottom: 1px solid rgba(51,39,72,0.9);">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: rgba(218,95,75,0.45); margin-top: 8px; flex: none;"></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px;">Lunes en la siesta</div><div style="font-size: 14px; color: #B1A3C0;">Mamá, 2 minutos</div></div>
+              </div>
+              <div style="display: flex; gap: 16px; padding: 15px 0;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: rgba(218,95,75,0.35); margin-top: 8px; flex: none;"></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><div style="font-size: 16px;">Domingo, muy temprano</div><div style="font-size: 14px; color: #B1A3C0;">Mamá, 5 minutos</div></div>
+              </div>
+            </div>
+          </div>
+          <div style="position: relative; padding: 0 28px 40px; background: linear-gradient(to top, #1B1229 60%, rgba(27,18,41,0));">
+            <div style="min-height: 60px; border-radius: 16px; background: #DA5F4B; color: #1B1229; font-size: 19px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Registrar lectura</div>
+          </div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">4 — Progreso acumulado</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section style="display: flex; flex-direction: column; gap: 28px;">
+    <div style="display: flex; flex-direction: column; gap: 6px;">
+      <h2 style="font-family: Literata, Georgia, serif; font-weight: 500; font-size: 30px; margin: 0; letter-spacing: -0.01em;">Gestor — prioridad 1</h2>
+      <p style="margin: 0; font-size: 15px; color: #B1A3C0; max-width: 62ch;">1366px de ancho, base clara neutra, densidad alta, mismo acento. Layout propio: barra superior con navegación lateral fija, sin herencia de Familia.</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 44px;">
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 1366px; height: 768px; background: #F6F4F9; color: #241A33; border-radius: 10px; overflow: hidden; border: 1px solid #DED6E6; display: flex;">
+          <div style="width: 220px; flex: none; background: #FFFFFF; border-right: 1px solid #E6E0EC; display: flex; flex-direction: column; padding: 20px 0;">
+            <div style="padding: 0 20px 22px; display: flex; flex-direction: column; gap: 2px;">
+              <div style="font-size: 11px; color: #7B4C99; font-weight: 700; letter-spacing: 0.04em;">Leer en Familia</div>
+              <div style="font-family: Literata, Georgia, serif; font-size: 16px; font-weight: 600;">Nacidos para Leer</div>
+              <div style="font-size: 12px; color: #726A7F;">Hospital piloto, semana 5</div>
+            </div>
+            <div style="display: flex; flex-direction: column;">
+              <div style="padding: 11px 20px; font-size: 14px; font-weight: 700; border-left: 3px solid #DA5F4B; background: #F6F0FA;">Tablero</div>
+              <div style="padding: 11px 20px; font-size: 14px; color: #554A66; border-left: 3px solid transparent;">Familias</div>
+              <div style="padding: 11px 20px; font-size: 14px; color: #554A66; border-left: 3px solid transparent;">Reporte semanal</div>
+              <div style="padding: 11px 20px; font-size: 14px; color: #554A66; border-left: 3px solid transparent;">Bandeja</div>
+              <div style="padding: 11px 20px; font-size: 14px; color: #554A66; border-left: 3px solid transparent;">Auditoría</div>
+            </div>
+          </div>
+          <div style="flex: 1; min-width: 0; display: flex; flex-direction: column;">
+            <div style="height: 60px; flex: none; background: #FFFFFF; border-bottom: 1px solid #E6E0EC; display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
+              <div style="font-size: 17px; font-weight: 700;">Tablero del piloto</div>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div style="font-size: 13px; color: #726A7F;">Actualizado hace 4 minutos</div>
+                <div style="height: 36px; padding: 0 16px; border-radius: 8px; background: #7B4C99; color: #FFFFFF; font-size: 13px; font-weight: 700; display: flex; align-items: center;">Generar reporte</div>
+              </div>
+            </div>
+            <div style="flex: 1; padding: 22px 24px; display: flex; flex-direction: column; gap: 20px; min-height: 0;">
+              <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px;">
+                  <div style="font-size: 13px; color: #726A7F;">Sensibilizadas</div>
+                  <div style="font-family: Literata, Georgia, serif; font-size: 32px; line-height: 1;">52</div>
+                  <div style="font-size: 12px; color: #726A7F;">meta del piloto: 50</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px;">
+                  <div style="font-size: 13px; color: #726A7F;">Registradas en la PWA</div>
+                  <div style="font-family: Literata, Georgia, serif; font-size: 32px; line-height: 1;">41</div>
+                  <div style="font-size: 12px; color: #726A7F;">79% de las sensibilizadas</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px; box-shadow: inset 3px 0 0 #DA5F4B;">
+                  <div style="font-size: 13px; color: #726A7F;">Activas esta semana</div>
+                  <div style="font-family: Literata, Georgia, serif; font-size: 32px; line-height: 1;">33</div>
+                  <div style="font-size: 12px; color: #726A7F;">al menos un registro en 7 días</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 7px;">
+                  <div style="font-size: 13px; color: #726A7F;">Kits entregados</div>
+                  <div style="font-family: Literata, Georgia, serif; font-size: 32px; line-height: 1;">47</div>
+                  <div style="font-size: 12px; color: #726A7F;">5 pendientes en consulta</div>
+                </div>
+              </div>
+              <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; align-items: baseline; justify-content: space-between;">
+                  <div style="font-size: 14px; font-weight: 700;">Participación por semana</div>
+                  <div style="font-size: 12px; color: #726A7F;">familias con al menos un registro</div>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: flex-end; height: 132px;">
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 72%; background: #915EB1; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #726A7F; text-align: center;">38<br>S1</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 68%; background: #915EB1; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #726A7F; text-align: center;">36<br>S2</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 62%; background: #915EB1; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #726A7F; text-align: center;">34<br>S3</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 64%; background: #915EB1; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #726A7F; text-align: center;">35<br>S4</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 60%; background: #DA5F4B; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #726A7F; text-align: center;">33<br>S5</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 8%; background: #E6E0EC; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #A399AE; text-align: center;">S6</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 8%; background: #E6E0EC; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #A399AE; text-align: center;">S7</div></div>
+                  <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; height: 100%;"><div style="height: 8%; background: #E6E0EC; border-radius: 4px 4px 0 0;"></div><div style="font-size: 12px; color: #A399AE; text-align: center;">S8</div></div>
+                </div>
+              </div>
+              <div style="display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; flex: 1; min-height: 0;">
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="font-size: 14px; font-weight: 700;">Requiere acción del equipo</div>
+                  <div style="display: flex; flex-direction: column; gap: 0; font-size: 13px;">
+                    <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #EFEAF3;"><span>5 kits sin entregar, familias ya registradas</span><span style="color: #726A7F;">Ver lista</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid #EFEAF3;"><span>8 familias sensibilizadas sin activar el enlace</span><span style="color: #726A7F;">Reenviar</span></div>
+                    <div style="display: flex; justify-content: space-between; padding: 9px 0;"><span>3 comentarios sin responder en la bandeja</span><span style="color: #726A7F;">Abrir</span></div>
+                  </div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 16px 20px; display: flex; flex-direction: column; gap: 12px;">
+                  <div style="font-size: 14px; font-weight: 700;">Consentimiento de notas</div>
+                  <div style="display: flex; align-items: flex-end; gap: 10px;"><div style="font-family: Literata, Georgia, serif; font-size: 32px; line-height: 1;">29</div><div style="font-size: 13px; color: #726A7F; padding-bottom: 4px;">de 41 familias autorizan que el equipo lea sus notas</div></div>
+                  <div style="height: 8px; border-radius: 4px; background: #E6E0EC; overflow: hidden;"><div style="width: 71%; height: 100%; background: #6FA88A;"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">9 — Tablero del piloto</div>
+      </div>
+
+      <div style="display: flex; gap: 44px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="width: 820px; height: 700px; background: #F6F4F9; color: #241A33; border-radius: 10px; overflow: hidden; border: 1px solid #DED6E6; display: flex; flex-direction: column;">
+            <div style="height: 60px; flex: none; background: #FFFFFF; border-bottom: 1px solid #E6E0EC; display: flex; align-items: center; justify-content: space-between; padding: 0 22px;">
+              <div style="font-size: 17px; font-weight: 700;">Familias</div>
+              <div style="display: flex; gap: 8px; font-size: 13px; color: #554A66;">
+                <div style="height: 34px; padding: 0 12px; border: 1px solid #DED6E6; border-radius: 8px; background: #FFF; display: flex; align-items: center;">Todas las semanas</div>
+                <div style="height: 34px; padding: 0 12px; border: 1px solid #DED6E6; border-radius: 8px; background: #FFF; display: flex; align-items: center;">Estado: activas</div>
+                <div style="height: 34px; padding: 0 14px; border-radius: 8px; background: #7B4C99; color: #FFFFFF; font-weight: 700; display: flex; align-items: center;">Exportar CSV</div>
+              </div>
+            </div>
+            <div style="flex: 1; padding: 18px 22px; min-height: 0; display: flex; flex-direction: column;">
+              <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; overflow: hidden;">
+                <div style="display: grid; grid-template-columns: 1.5fr 0.9fr 0.7fr 1fr 0.9fr; gap: 12px; padding: 11px 16px; background: #FAF8FC; border-bottom: 1px solid #E6E0EC; font-size: 12px; color: #726A7F; font-weight: 700;">
+                  <div>Familia</div><div>Cuidadores</div><div>Kit</div><div>Último registro</div><div>Estado</div>
+                </div>
+                {{ filasFamilias }}
+              </div>
+            </div>
+          </div>
+          <div style="font-size: 14px; color: #B1A3C0;">10 — Listado de familias</div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="width: 500px; height: 700px; background: #F6F4F9; color: #241A33; border-radius: 10px; overflow: hidden; border: 1px solid #DED6E6; display: flex; flex-direction: column;">
+            <div style="height: 60px; flex: none; background: #FFFFFF; border-bottom: 1px solid #E6E0EC; display: flex; align-items: center; justify-content: space-between; padding: 0 20px;">
+              <div style="display: flex; flex-direction: column; gap: 1px;"><div style="font-size: 16px; font-weight: 700;">Familia Quispe Allca</div><div style="font-size: 12px; color: #726A7F;">Ingresó en semana 1</div></div>
+              <div style="font-size: 12px; color: #726A7F;">F-014</div>
+            </div>
+            <div style="flex: 1; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-height: 0;">
+              <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+                <div style="display: flex; flex-direction: column; gap: 3px;"><span style="color: #726A7F; font-size: 12px;">Bebé</span><span>8 semanas</span></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><span style="color: #726A7F; font-size: 12px;">Kit</span><span>Entregado, 2 de septiembre</span></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><span style="color: #726A7F; font-size: 12px;">Cuidadores activos</span><span>Rosa (mamá), Julio (papá)</span></div>
+                <div style="display: flex; flex-direction: column; gap: 3px;"><span style="color: #726A7F; font-size: 12px;">Registros</span><span>14 en 5 semanas</span></div>
+              </div>
+              <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="font-size: 13px; font-weight: 700;">Registros recientes</div>
+                <div style="font-size: 13px; display: flex; flex-direction: column;">
+                  <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #EFEAF3;"><span>9 de septiembre, 4:10 a.m.</span><span style="color: #726A7F;">Rosa, 5 min</span></div>
+                  <div style="display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #EFEAF3;"><span>7 de septiembre, 9:40 p.m.</span><span style="color: #726A7F;">Julio, 10 min</span></div>
+                  <div style="display: flex; justify-content: space-between; padding: 7px 0;"><span>6 de septiembre, 2:15 p.m.</span><span style="color: #726A7F;">Rosa, 2 min</span></div>
+                </div>
+              </div>
+              {{ bloqueNotas }}
+            </div>
+          </div>
+          <div style="font-size: 14px; color: #B1A3C0;">11 — Ficha de familia</div>
+        </div>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="width: 1366px; background: #E9EBEF; color: #241A33; border-radius: 10px; border: 1px solid #DED6E6; padding: 28px; display: flex; gap: 24px;">
+          <div style="width: 794px; flex: none; background: #FFFFFF; color: #241A33; padding: 52px 60px; display: flex; flex-direction: column; gap: 26px; box-shadow: 0 1px 3px rgba(42,30,64,0.12);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #7B4C99; padding-bottom: 16px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="font-family: Literata, Georgia, serif; font-size: 24px; font-weight: 600;">Reporte semanal de implementación</div>
+                <div style="font-size: 13px; color: #554A66;">Nacidos para Leer Perú, semana 5 de 8 — 3 al 9 de septiembre de 2026</div>
+              </div>
+              <div style="font-size: 12px; color: #726A7F; text-align: right; line-height: 1.5;">Leer en Familia<br>Hospital piloto, Lima</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 14px; font-weight: 700;">Resumen de la semana</div>
+              <p style="font-family: Literata, Georgia, serif; font-size: 15px; line-height: 1.65; margin: 0; color: #3B2C55;">33 de las 41 familias registradas leyeron al menos una vez esta semana. Se entregaron 4 kits en consulta y quedan 5 pendientes. La participación se mantiene estable desde la semana 3, con una media de 2,7 lecturas por familia.</p>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #DED6E6;">
+              <div style="padding: 14px 16px; border-right: 1px solid #DED6E6; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 11px; color: #726A7F;">Familias activas</span><span style="font-family: Literata, Georgia, serif; font-size: 24px;">33</span></div>
+              <div style="padding: 14px 16px; border-right: 1px solid #DED6E6; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 11px; color: #726A7F;">Lecturas registradas</span><span style="font-family: Literata, Georgia, serif; font-size: 24px;">112</span></div>
+              <div style="padding: 14px 16px; border-right: 1px solid #DED6E6; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 11px; color: #726A7F;">Kits entregados</span><span style="font-family: Literata, Georgia, serif; font-size: 24px;">47</span></div>
+              <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 4px;"><span style="font-size: 11px; color: #726A7F;">Ambos cuidadores</span><span style="font-family: Literata, Georgia, serif; font-size: 24px;">18</span></div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="font-size: 14px; font-weight: 700;">Participación acumulada</div>
+              <div style="display: flex; gap: 8px; align-items: flex-end; height: 96px; border-bottom: 1px solid #DED6E6; padding-bottom: 4px;">
+                <div style="flex: 1; height: 90%; background: #915EB1;"></div>
+                <div style="flex: 1; height: 85%; background: #915EB1;"></div>
+                <div style="flex: 1; height: 80%; background: #915EB1;"></div>
+                <div style="flex: 1; height: 83%; background: #915EB1;"></div>
+                <div style="flex: 1; height: 78%; background: #DA5F4B;"></div>
+                <div style="flex: 1; height: 4%; background: #DED6E6;"></div>
+                <div style="flex: 1; height: 4%; background: #DED6E6;"></div>
+                <div style="flex: 1; height: 4%; background: #DED6E6;"></div>
+              </div>
+              <div style="display: flex; gap: 8px; font-size: 11px; color: #726A7F;">
+                <div style="flex: 1; text-align: center;">S1</div><div style="flex: 1; text-align: center;">S2</div><div style="flex: 1; text-align: center;">S3</div><div style="flex: 1; text-align: center;">S4</div><div style="flex: 1; text-align: center;">S5</div><div style="flex: 1; text-align: center;">S6</div><div style="flex: 1; text-align: center;">S7</div><div style="flex: 1; text-align: center;">S8</div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="font-size: 14px; font-weight: 700;">Observaciones de campo</div>
+              <div style="font-family: Literata, Georgia, serif; font-size: 15px; line-height: 1.65; color: #3B2C55; display: flex; flex-direction: column; gap: 7px;">
+                <div>Las lecturas se concentran entre las 9 p.m. y las 5 a.m., lo que confirma el uso nocturno previsto.</div>
+                <div>En 18 hogares registran los dos cuidadores; la participación del papá aparece a partir de la semana 3.</div>
+                <div>Pendiente con el hospital: coordinar la entrega de los 5 kits restantes en el control de los dos meses.</div>
+              </div>
+            </div>
+            <div style="margin-top: auto; padding-top: 18px; border-top: 1px solid #DED6E6; font-size: 11px; color: #726A7F;">Generado el 10 de septiembre de 2026. Incluye solo datos agregados; no contiene notas de familias sin consentimiento.</div>
+          </div>
+          <div style="flex: 1; display: flex; flex-direction: column; gap: 12px;">
+            <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+              <div style="font-size: 14px; font-weight: 700;">Exportar</div>
+              <div style="display: flex; flex-direction: column; gap: 9px;">
+                <div style="height: 42px; border-radius: 8px; background: #7B4C99; color: #FFFFFF; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center;">Descargar PDF</div>
+                <div style="height: 42px; border-radius: 8px; border: 1px solid #DED6E6; font-size: 14px; display: flex; align-items: center; justify-content: center;">Enviar por correo al hospital</div>
+                <div style="height: 42px; border-radius: 8px; border: 1px solid #DED6E6; font-size: 14px; display: flex; align-items: center; justify-content: center;">Copiar resumen como texto</div>
+              </div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E6E0EC; border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;">
+              <div style="font-size: 14px; font-weight: 700;">Qué incluye</div>
+              <div style="font-size: 13px; color: #554A66; display: flex; flex-direction: column; gap: 9px;">
+                <div style="display: flex; gap: 10px; align-items: center;"><div style="width: 18px; height: 18px; border-radius: 5px; background: #6FA88A; color: #FFF; font-size: 12px; display: flex; align-items: center; justify-content: center;">✓</div>Indicadores operativos</div>
+                <div style="display: flex; gap: 10px; align-items: center;"><div style="width: 18px; height: 18px; border-radius: 5px; background: #6FA88A; color: #FFF; font-size: 12px; display: flex; align-items: center; justify-content: center;">✓</div>Participación por semana</div>
+                <div style="display: flex; gap: 10px; align-items: center;"><div style="width: 18px; height: 18px; border-radius: 5px; background: #6FA88A; color: #FFF; font-size: 12px; display: flex; align-items: center; justify-content: center;">✓</div>Observaciones del equipo</div>
+                <div style="display: flex; gap: 10px; align-items: center;"><div style="width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #C9C0D2;"></div>Notas de familias, solo con consentimiento</div>
+              </div>
+            </div>
+            <div style="background: #F6F0FA; border: 1px solid #E0D0EC; border-radius: 10px; padding: 16px 20px; font-size: 13px; line-height: 1.55; color: #554A66;">Este reporte reemplaza la planilla que hoy se arma a mano. Se genera con los datos del lunes a las 7 a.m. y queda editable hasta que se descargue.</div>
+          </div>
+        </div>
+        <div style="font-size: 14px; color: #B1A3C0;">12 — Reporte semanal de implementación</div>
+      </div>
+
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;semana&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;min&quot;:1,&quot;max&quot;:8,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Familia&quot;},&quot;sinConexion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Familia&quot;},&quot;consentimientoNotas&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Gestor&quot;}}">
+const F = "Literata, Georgia, serif";
+const UI = "'Atkinson Hyperlegible', system-ui, sans-serif";
+const e = React.createElement;
+
+class Component extends DCLogic {
+  state = { registrado: false };
+
+  filas() {
+    const rows = [
+      ["Quispe Allca", "Rosa, Julio", "Sí", "Hace 6 horas", "Activa", "#6FA88A"],
+      ["Miranda Soto", "Carla", "Sí", "Hace 2 días", "Activa", "#6FA88A"],
+      ["Ferreyros León", "Ana, Diego", "Sí", "Hace 1 día", "Activa", "#6FA88A"],
+      ["Cáceres Nuñez", "Milagros", "Pendiente", "Hace 9 días", "En pausa", "#B5503C"],
+      ["Rivas Huamán", "Lucía, Marco", "Sí", "Hace 3 días", "Activa", "#6FA88A"],
+      ["Delgado Paz", "Sofía", "Sí", "Hace 12 días", "En pausa", "#B5503C"],
+      ["Ortega Valdez", "Pilar, Iván", "Sí", "Hace 5 horas", "Activa", "#6FA88A"],
+      ["Salazar Ríos", "Andrea", "Pendiente", "Sin registros", "Sin activar", "#726A7F"],
+      ["Bustamante Cruz", "Elena, Raúl", "Sí", "Hace 4 días", "Activa", "#6FA88A"],
+      ["Tapia Guerra", "Noelia", "Sí", "Hace 1 día", "Activa", "#6FA88A"],
+      ["Zegarra Mora", "Kiara, Luis", "Sí", "Hace 8 días", "En pausa", "#B5503C"],
+      ["Palacios Ayala", "Fiorella", "Pendiente", "Sin registros", "Sin activar", "#726A7F"]
+    ];
+    return e("div", { style: { fontFamily: UI } }, rows.map((r, i) =>
+      e("div", { key: i, style: {
+        display: "grid", gridTemplateColumns: "1.5fr 0.9fr 0.7fr 1fr 0.9fr", gap: 12,
+        padding: "11px 16px", fontSize: 13, color: "#241A33",
+        borderBottom: i < rows.length - 1 ? "1px solid #EFEAF3" : "none",
+        background: i === 0 ? "#F6F0FA" : "#FFFFFF"
+      } },
+        e("div", { style: { fontWeight: 700 } }, r[0]),
+        e("div", { style: { color: "#554A66" } }, r[1]),
+        e("div", { style: { color: r[2] === "Sí" ? "#554A66" : "#B5503C" } }, r[2]),
+        e("div", { style: { color: "#554A66" } }, r[3]),
+        e("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
+          e("span", { style: { width: 7, height: 7, borderRadius: "50%", background: r[5] } }),
+          r[4])
+      )));
+  }
+
+  notas() {
+    const ok = this.props.consentimientoNotas ?? false;
+    const box = { background: "#FFFFFF", border: "1px solid #E6E0EC", borderRadius: 10, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, fontFamily: UI, flex: 1, minHeight: 0 };
+    if (ok) {
+      return e("div", { style: box },
+        e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+          e("div", { style: { fontSize: 13, fontWeight: 700 } }, "Notas de la familia"),
+          e("div", { style: { fontSize: 12, color: "#6FA88A" } }, "Consentimiento activo")),
+        e("div", { style: { fontFamily: F, fontSize: 14, lineHeight: 1.6, color: "#3B2C55", display: "flex", flexDirection: "column", gap: 10 } },
+          e("div", null, "“Se queda quieto cuando canto, aunque esté llorando.” — Rosa, 9 de septiembre"),
+          e("div", null, "“Leí yo esta vez y me miró todo el rato.” — Julio, 7 de septiembre")),
+        e("div", { style: { marginTop: "auto", fontSize: 12, color: "#726A7F" } }, "La familia puede revocar este permiso en cualquier momento; las notas dejarían de mostrarse aquí."));
+    }
+    return e("div", { style: box },
+      e("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
+        e("div", { style: { fontSize: 13, fontWeight: 700 } }, "Notas de la familia"),
+        e("div", { style: { fontSize: 12, color: "#B5503C" } }, "Sin consentimiento")),
+      e("div", { style: { flex: 1, minHeight: 120, borderRadius: 8, background: "#F6F4F9", border: "1px dashed #C9C0D2", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, padding: 18, textAlign: "center" } },
+        e("div", { style: { width: 26, height: 26, borderRadius: 7, background: "#E6E0EC", color: "#726A7F", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" } }, "—"),
+        e("div", { style: { fontSize: 13, color: "#554A66", maxWidth: "34ch", lineHeight: 1.55 } }, "Esta familia escribió 3 notas y no autorizó que el equipo las lea. No se muestran ni se exportan.")),
+      e("div", { style: { fontSize: 12, color: "#726A7F" } }, "Solo la familia puede cambiarlo, desde su pantalla de privacidad."));
+  }
+
+  registro() {
+    const off = this.props.sinConexion ?? true;
+    if (!this.state.registrado) {
+      return {
+        cuerpo: e(React.Fragment, null,
+          e("div", { style: { fontFamily: UI, fontSize: 15, color: "#B1A3C0" } }, "Semana " + (this.props.semana ?? 5)),
+          e("h1", { style: { fontFamily: F, fontWeight: 500, fontSize: 30, lineHeight: 1.3, margin: 0, letterSpacing: "-0.015em", maxWidth: "20ch", color: "#F0EDE6" } }, "¿Leyeron hoy?"),
+          e("p", { style: { fontFamily: F, fontSize: 19, lineHeight: 1.65, color: "rgba(240,237,230,0.7)", margin: 0, maxWidth: "32ch" } }, "Un toque y listo. Lo demás es opcional y lo puedes dejar después.")
+        ),
+        accion: e("div", {
+          onClick: () => this.setState({ registrado: true }),
+          style: { minHeight: 72, borderRadius: 18, background: "#DA5F4B", color: "#1B1229", fontFamily: UI, fontSize: 21, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 0 64px rgba(218,95,75,0.28)" }
+        }, "Registrar lectura")
+      };
+    }
+    const chip = { minHeight: 56, borderRadius: 14, background: "#2A1E40", border: "1.5px solid #3B2C55", color: "rgba(240,237,230,0.85)", fontFamily: UI, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", flex: 1 };
+    return {
+      cuerpo: e(React.Fragment, null,
+        e("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+          e("div", { style: { width: 34, height: 34, borderRadius: 10, background: "#6FA88A", color: "#1B1229", fontSize: 19, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" } }, "✓"),
+          e("div", { style: { fontFamily: UI, fontSize: 19, fontWeight: 700, color: "#F0EDE6" } }, "Lectura registrada")),
+        off ? e("div", { style: { display: "flex", gap: 12, padding: "16px 18px", borderRadius: 14, background: "rgba(42,30,64,0.85)", border: "1px solid #3B2C55" } },
+          e("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "#B1A3C0", marginTop: 7, flex: "none" } }),
+          e("div", { style: { fontFamily: UI, fontSize: 15, lineHeight: 1.55, color: "rgba(240,237,230,0.8)" } }, "Guardado en tu teléfono. Se envía solo cuando haya señal.")
+        ) : e("div", { style: { fontFamily: UI, fontSize: 15, color: "#6FA88A" } }, "Sincronizado"),
+        e("div", { style: { height: 1, background: "#332748" } }),
+        e("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+          e("div", { style: { fontFamily: UI, fontSize: 16, color: "#B1A3C0" } }, "Si quieres, cuéntanos más"),
+          e("div", { style: { display: "flex", gap: 10 } }, e("div", { style: chip }, "Mamá"), e("div", { style: chip }, "Papá"), e("div", { style: chip }, "Otra")),
+          e("div", { style: { display: "flex", gap: 10 } }, e("div", { style: chip }, "2 min"), e("div", { style: chip }, "5 min"), e("div", { style: chip }, "10+ min")),
+          e("div", { style: { minHeight: 84, borderRadius: 14, background: "#2A1E40", border: "1.5px solid #3B2C55", padding: "16px 18px", fontFamily: F, fontSize: 17, color: "rgba(240,237,230,0.4)", lineHeight: 1.5 } }, "Una nota para ti, si te nace")
+        )
+      ),
+      accion: e("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
+        e("div", { style: { minHeight: 60, borderRadius: 16, background: "#DA5F4B", color: "#1B1229", fontFamily: UI, fontSize: 19, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" } }, "Guardar y volver"),
+        e("div", { onClick: () => this.setState({ registrado: false }), style: { minHeight: 52, borderRadius: 16, color: "rgba(240,237,230,0.7)", fontFamily: UI, fontSize: 17, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" } }, "Listo, nada más")
+      )
+    };
+  }
+
+  renderVals() {
+    const r = this.registro();
+    const semana = this.props.semana ?? 5;
+    const marcas = Array.from({ length: 8 }, (_, i) => ({ color: i < semana ? "#DA5F4B" : "#3B2C55" }));
+    const total = [2, 5, 7, 11, 14, 17, 19, 22][semana - 1] || 14;
+    return {
+      marcas: marcas,
+      totalLecturas: total,
+      resumenSemanas: semana === 1 ? "lecturas registradas esta semana" : "lecturas registradas en " + semana + " semanas",
+      semana: semana,
+      filasFamilias: this.filas(),
+      bloqueNotas: this.notas(),
+      registroCuerpo: r.cuerpo,
+      registroAccion: r.accion
+    };
+  }
+}
+</script>
+</body>
+</html>
