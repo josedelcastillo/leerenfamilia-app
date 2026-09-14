@@ -181,6 +181,26 @@ describe('sincronización de la cola', () => {
     assert.equal(store.logs[0]?.loggedBy, 'secundario');
   });
 
+  test('acepta una entrada registrada en un toque, sin minutos', async () => {
+    const [result] = await applySync(store, store.context, MOTHER, [logItem({ minutes: null })], TODAY, NOW);
+    assert.equal(result?.status, 'ok');
+    assert.equal(store.logs[0]?.minutes, null);
+  });
+
+  test('guarda declaredBy aparte del loggedBy que sale del token', async () => {
+    await applySync(store, store.context, MOTHER, [logItem({ declaredBy: 'papa' })], TODAY, NOW);
+    assert.equal(store.logs[0]?.declaredBy, 'papa');
+    assert.equal(store.logs[0]?.loggedBy, 'principal');
+  });
+
+  test('completar los detalles reescribe la misma entrada, no crea otra', async () => {
+    await applySync(store, store.context, MOTHER, [logItem({ minutes: null })], TODAY, NOW);
+    await applySync(store, store.context, MOTHER, [logItem({ minutes: 5, note: 'nos miró', declaredBy: 'mama' })], TODAY, NOW);
+    assert.equal(store.logs.length, 1);
+    assert.equal(store.logs[0]?.minutes, 5);
+    assert.equal(store.logs[0]?.declaredBy, 'mama');
+  });
+
   test('accepts entries backdated by the queue, and rejects future ones', async () => {
     const results = await applySync(store, store.context, MOTHER, [
       logItem({ clientId: 'a', date: '2026-09-16' }),
