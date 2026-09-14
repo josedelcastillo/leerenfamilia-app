@@ -1,0 +1,512 @@
+# Fase 0 (cont.) — Tarea 0.5: tokens y hoja de estilos de familia
+
+Se ejecuta **después de la 0.4** (el chequeo de contraste en rojo) y **antes de la 0.6**.
+
+**Files:**
+- Modify (reescribir): `web/src/shared/styles.css`
+- Modify: `web/src/gestor/gestor.css` (solo agregar el bloque `:root` del gestor; el resto se reescribe en
+  la fase 5)
+
+La hoja nueva trae **todas** las clases que usan las pantallas de familia de la fase 4. Así esas tareas
+solo tocan TSX. El bloque final `/* --- heredado --- */` mantiene legibles los componentes viejos
+mientras se reemplazan; se borra en la tarea 6.2.
+
+- [ ] **Step 1: Reemplazar `web/src/shared/styles.css` completo**
+
+```css
+/*
+ * Mobile-first, high contrast, large type, large tap targets.
+ *
+ * The reader is a caregiver with a newborn, often at night, often one-handed, often on a cheap
+ * phone in bright sunlight. 18–19px body, 56px touch targets, contrast measured past AA.
+ *
+ * Identity (D-022, D-023): the Leer en Familia coral and the purple of the books, on white. Two
+ * fills never carry text — `--coral` and `--morado` — and `npm run check:contrast` fails if either
+ * appears as a text colour. Their deepened versions (`--brand`, `--brand-alt`, `--accent`,
+ * `--morado-text`) are what type and controls use.
+ *
+ * Literata for what is read, Atkinson Hyperlegible for everything else. Both self-hosted.
+ */
+@font-face { font-family: 'Literata'; font-style: normal; font-weight: 300; font-display: swap; src: url('./fonts/literata-300.woff2') format('woff2'); }
+@font-face { font-family: 'Literata'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/literata-400.woff2') format('woff2'); }
+@font-face { font-family: 'Literata'; font-style: normal; font-weight: 500; font-display: swap; src: url('./fonts/literata-500.woff2') format('woff2'); }
+@font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 400; font-display: swap; src: url('./fonts/atkinson-400.woff2') format('woff2'); }
+@font-face { font-family: 'Atkinson Hyperlegible'; font-style: normal; font-weight: 700; font-display: swap; src: url('./fonts/atkinson-700.woff2') format('woff2'); }
+
+:root {
+  /* Identity — fills only, never under text */
+  --coral: #DA5F4B;
+  --coral-soft: #FBEDEA;
+  --morado: #915EB1;
+
+  /* Identity — deepened for type and controls */
+  --coral-ink: #2B1409;     /* ink on top of a coral button */
+  --brand: #A8402C;         /* the only coral allowed under type */
+  --brand-alt: #C24A38;     /* large figures and text ≥19px */
+  --accent: #6E4E9B;        /* purple text, focus ring */
+  --accent-soft: #F2ECF7;
+  --morado-text: #7B4C99;   /* purple labels */
+
+  /* Ink and paper */
+  --ink: #241A33;
+  --ink-soft: #6B6178;
+  --ink-mid: #3E3552;
+  --ink-read: rgba(36, 26, 51, 0.72);   /* long reading text */
+  --paper: #FFFFFF;
+  --surface: #F7F3FA;
+  --line: #E6DCEF;
+  --line-strong: #DCD2E8;
+
+  /* State — never decorative */
+  --ok: #3F7A5E;
+  --warn: #6B4A12;
+  --warn-soft: #FFF6E6;
+  --warn-line: #ECD9AE;
+  --alert: #B5503C;
+
+  --font-read: 'Literata', Georgia, serif;
+  --font-ui: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --radius: 12px;
+  --radius-control: 14px;
+  --radius-primary: 16px;
+  --touch: 56px;
+  --gap: 1rem;
+  --ease: 160ms ease-out;
+
+  font-family: var(--font-ui);
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); }
+h1, h2, h3, p, ul, ol, dl, dd, figure { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+img { max-width: 100%; }
+
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* --- layout -------------------------------------------------------------- */
+.familia { position: relative; min-height: 100dvh; overflow-x: clip; }
+
+/* The purple wash from the top edge. Decorative; never catches a tap. */
+.halo {
+  position: absolute; top: -210px; left: 50%; transform: translateX(-50%);
+  width: 540px; height: 400px;
+  background: radial-gradient(ellipse at center, rgba(145, 94, 177, 0.22), rgba(145, 94, 177, 0.07) 48%, rgba(145, 94, 177, 0) 72%);
+  pointer-events: none;
+}
+
+.app { position: relative; max-width: 30rem; margin: 0 auto; padding: 0 28px; }
+
+/* One screen: content, then one primary action in the lower third. */
+.pantalla {
+  display: flex; flex-direction: column;
+  min-height: calc(100dvh - var(--touch) - env(safe-area-inset-bottom));
+  padding-top: 58px;
+}
+.app--sin-tabs .pantalla { min-height: 100dvh; }
+.estado + .pantalla { padding-top: 16px; }
+.pantalla__cuerpo { display: flex; flex-direction: column; gap: 24px; flex: 1; padding-bottom: 8px; }
+.pantalla__accion {
+  position: sticky; bottom: calc(var(--touch) + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 24px 0 28px;
+  background: linear-gradient(to top, var(--paper) 60%, rgba(255, 255, 255, 0));
+}
+.app--sin-tabs .pantalla__accion { bottom: 0; padding-bottom: calc(40px + env(safe-area-inset-bottom)); }
+
+/* --- type ---------------------------------------------------------------- */
+.titular {
+  font-family: var(--font-read); font-weight: 500;
+  font-size: 27px; line-height: 1.34; letter-spacing: -0.01em;
+  max-width: 26ch; text-wrap: pretty;
+}
+.titular--activacion { font-size: 31px; line-height: 1.28; letter-spacing: -0.015em; max-width: 22ch; }
+.titular--registro { font-size: 30px; line-height: 1.3; letter-spacing: -0.015em; max-width: 20ch; }
+.titular--actividad { font-size: 28px; line-height: 1.3; max-width: 22ch; }
+.lectura {
+  font-family: var(--font-read); font-size: 19px; line-height: 1.65;
+  color: var(--ink-read); max-width: 34ch; text-wrap: pretty;
+}
+.lectura--suave { font-size: 18px; line-height: 1.6; color: rgba(36, 26, 51, 0.66); max-width: 33ch; }
+.meta { font-size: 15px; color: var(--ink-soft); }
+.meta--chica { font-size: 14px; }
+.subtitulo { font-size: 16px; color: var(--ink-soft); }
+.filete { border: 0; height: 1px; background: var(--line); margin: 0; }
+
+/* --- controls ------------------------------------------------------------ */
+.btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; min-height: 60px; padding: 0 20px;
+  border: 0; border-radius: var(--radius-primary);
+  background: var(--coral); color: var(--coral-ink);
+  font-size: 19px; font-weight: 700; cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease), color var(--ease);
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn--grande { min-height: 64px; font-size: 20px; }
+/* The one exception to "no shadows": the single action of the logging screen (handoff, screen 3). */
+.btn--registrar { min-height: 96px; border-radius: 20px; font-size: 21px; box-shadow: 0 10px 28px rgba(218, 95, 75, 0.32); }
+.btn--secundario {
+  min-height: var(--touch); background: var(--paper); color: var(--ink);
+  border: 1.5px solid var(--line-strong); font-size: 17px; font-weight: 400;
+}
+.btn-texto {
+  min-height: 52px; border: 0; background: none; cursor: pointer;
+  font-size: 17px; color: rgba(36, 26, 51, 0.7);
+}
+.enlace {
+  display: inline-flex; align-items: center; align-self: flex-start;
+  min-height: var(--touch); padding: 0; border: 0; background: none; cursor: pointer;
+  font-size: 16px; color: var(--brand); text-align: left;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.volver {
+  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+  min-height: var(--touch); margin: -16px 0 -8px -4px; padding: 0 4px;
+  border: 0; background: none; cursor: pointer; font-size: 16px; color: var(--brand);
+}
+.volver::before { content: '‹'; font-size: 24px; line-height: 1; }
+
+/* Chips: message type (filled when active). */
+.chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.chip {
+  min-height: 52px; padding: 0 18px;
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius-control);
+  background: var(--paper); color: var(--ink); font-size: 16px; cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease), color var(--ease);
+}
+.chip[aria-pressed='true'] { background: var(--ink); border-color: var(--ink); color: #ffffff; }
+
+/* Chips in a row: who and how long, after logging (outlined in coral when chosen). */
+.chips--fila { flex-wrap: nowrap; gap: 10px; }
+.chips--fila .chip { flex: 1; min-height: var(--touch); padding: 0 8px; background: var(--surface); font-size: 17px; }
+.chips--fila .chip[aria-pressed='true'] {
+  background: var(--surface); color: var(--ink);
+  border-color: var(--coral); box-shadow: inset 0 0 0 1px rgba(218, 95, 75, 0.18);
+}
+
+/* Radio rows: "¿Quién eres en casa?" */
+.opciones { display: flex; flex-direction: column; gap: 10px; border: 0; padding: 0; margin: 0; }
+.opcion {
+  position: relative; display: flex; align-items: center;
+  min-height: var(--touch); padding: 0 20px;
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius-control);
+  background: var(--surface); font-size: 18px; color: rgba(36, 26, 51, 0.8); cursor: pointer;
+  transition: border-color var(--ease);
+}
+.opcion input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.opcion:has(input:checked) { border-color: var(--coral); box-shadow: inset 0 0 0 1px rgba(218, 95, 75, 0.18); color: var(--ink); }
+.opcion:has(input:focus-visible) { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Consent row with a 26px box. */
+.consentimiento {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 16px 18px; border-radius: var(--radius-control);
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: 15px; line-height: 1.5; color: rgba(36, 26, 51, 0.82); cursor: pointer;
+}
+.consentimiento input {
+  appearance: none; flex: none; width: 26px; height: 26px; margin: 0;
+  display: grid; place-content: center;
+  border: 1.5px solid var(--line-strong); border-radius: 7px; background: var(--paper); cursor: pointer;
+}
+.consentimiento input:checked { background: var(--coral); border-color: var(--coral); }
+.consentimiento input:checked::after { content: '✓'; color: #ffffff; font-size: 16px; font-weight: 700; }
+
+/* Fields. The manager overrides these under .g-shell / .g-login. */
+.campo { display: flex; flex-direction: column; gap: 8px; }
+.campo label, .etiqueta { font-size: 16px; color: var(--ink-soft); }
+input:not([type='checkbox']):not([type='radio']), select, textarea {
+  width: 100%; min-height: var(--touch); padding: 0 18px;
+  font-size: 18px; color: var(--ink); background: var(--paper);
+  border: 1.5px solid var(--line-strong); border-radius: var(--radius-control);
+}
+textarea {
+  min-height: 84px; padding: 16px 18px; resize: vertical;
+  font-family: var(--font-read); font-size: 17px; line-height: 1.5; background: var(--surface);
+}
+.campo-mensaje { min-height: 104px; background: var(--paper); }
+::placeholder { color: rgba(36, 26, 51, 0.42); }
+
+/* --- week header and activities ------------------------------------------ */
+.semana-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.marcas { display: flex; gap: 6px; }
+.marcas span { width: 22px; height: 3px; border-radius: 2px; background: var(--line-strong); }
+.marcas span.is-hecha { background: var(--coral); }
+
+.kit { display: flex; flex-direction: column; gap: 10px; }
+.kit__titulo { font-family: var(--font-read); font-size: 17px; color: rgba(36, 26, 51, 0.9); }
+.kit__items { font-size: 16px; line-height: 1.55; color: var(--ink-soft); }
+.kit__items span { color: rgba(36, 26, 51, 0.88); }
+
+.actividades { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.actividades button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-height: var(--touch); padding: 0 18px;
+  border: 1px solid var(--line); border-radius: var(--radius-control);
+  background: var(--paper); font-size: 17px; color: var(--ink); text-align: left; cursor: pointer;
+}
+.actividades__tipo { flex: none; font-size: 13px; color: var(--morado-text); }
+
+.fila-meta { display: flex; align-items: center; gap: 10px; }
+.tipo {
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  padding: 5px 11px; border-radius: 20px; background: var(--accent-soft);
+}
+
+.aviso-placeholder, .placeholder-note {
+  padding: 14px 16px; border-radius: var(--radius);
+  background: var(--warn-soft); border: 1px solid var(--warn-line);
+  font-size: 14px; line-height: 1.5; color: var(--warn);
+}
+
+/* --- audio player -------------------------------------------------------- */
+.reproductor {
+  display: flex; align-items: center; gap: 16px; padding: 18px;
+  border-radius: 18px; background: var(--surface); border: 1px solid var(--line);
+}
+.reproductor__boton {
+  flex: none; width: 56px; height: 56px; border: 0; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--coral); color: var(--coral-ink); font-size: 20px;
+}
+.reproductor__pista { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.reproductor__barra { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.reproductor__barra span { display: block; height: 100%; width: var(--avance, 0%); background: var(--morado); }
+.reproductor__tiempos { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-soft); }
+
+/* --- logging ------------------------------------------------------------- */
+.confirmado { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 700; }
+.confirmado__check {
+  flex: none; width: 34px; height: 34px; border-radius: 10px;
+  display: grid; place-items: center; background: var(--ok); color: var(--coral-ink); font-size: 19px;
+}
+.banda-estado {
+  display: flex; gap: 12px; padding: 16px 18px; border-radius: var(--radius-control);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  font-size: 15px; line-height: 1.55; color: rgba(36, 26, 51, 0.8);
+}
+.sincronizado { font-size: 15px; color: var(--ok); }
+.opcionales { display: flex; flex-direction: column; gap: 12px; }
+
+/* --- dots, status, lists ------------------------------------------------- */
+.punto { flex: none; width: 9px; height: 9px; margin-top: 8px; border-radius: 50%; background: var(--ink-soft); }
+.punto--alerta { background: var(--alert); }
+.punto--ok { background: var(--ok); }
+.punto--morado { background: var(--morado); }
+.punto--coral { width: 8px; height: 8px; background: var(--coral); }
+
+.estado { position: relative; padding-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.estado__fila, .estado-linea {
+  display: flex; align-items: center; gap: 10px; font-size: 15px; color: var(--ink-soft);
+}
+.estado__fila { min-height: var(--touch); padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+.estado__fila .punto, .estado-linea .punto { margin-top: 0; }
+.aviso-error {
+  padding: 14px 16px; border-radius: var(--radius-control);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  font-size: 15px; line-height: 1.5; color: var(--alert);
+}
+
+.lista-puntos { list-style: none; padding: 0; }
+.lista-puntos li { display: flex; gap: 16px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+.lista-puntos li:last-child { border-bottom: 0; }
+.lista-puntos__cuerpo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.lista-puntos__titulo { font-size: 16px; }
+/* The log fades towards the past. Never the reverse: nothing here signals a gap. */
+.lista-puntos--desvanece li:nth-child(2) .punto { opacity: 0.55; }
+.lista-puntos--desvanece li:nth-child(3) .punto { opacity: 0.45; }
+.lista-puntos--desvanece li:nth-child(n + 4) .punto { opacity: 0.35; }
+.nota-propia { font-family: var(--font-read); font-size: 15px; line-height: 1.55; color: var(--ink-mid); }
+
+.nota-caja {
+  padding: 16px 18px; border-radius: var(--radius-control);
+  background: var(--surface); border: 1px solid var(--line);
+  font-size: 15px; line-height: 1.55; color: var(--ink-soft);
+}
+
+/* --- progress ------------------------------------------------------------ */
+.progreso-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mishashos { width: 132px; height: auto; display: block; }
+.cifra {
+  font-family: var(--font-read); font-weight: 300; font-size: 52px; line-height: 1;
+  letter-spacing: -0.02em; color: var(--brand-alt); font-variant-numeric: tabular-nums;
+}
+.cifra-leyenda {
+  margin-top: 6px; font-family: var(--font-read); font-size: 21px; line-height: 1.4;
+  color: rgba(36, 26, 51, 0.88); max-width: 26ch;
+}
+
+/* --- el cerebro que crece (D-021) ---------------------------------------- */
+/* It only ever grows. Nothing here fades, dims or empties when a family stops logging. */
+.cerebro { padding: 1rem 1rem 0.75rem; border: 1px solid var(--line); border-radius: var(--radius); text-align: center; }
+.cerebro svg { width: 100%; max-width: 17rem; height: auto; display: block; margin: 0 auto; }
+.cerebro__silueta path { fill: #F7F3FA; stroke: #E6DCEF; stroke-width: 1.6; stroke-linejoin: round; }
+.cerebro__silueta .cerebro__surco { fill: none; stroke: #E6DCEF; stroke-width: 1.8; stroke-linecap: round; }
+.cerebro__silueta .cerebro__tallo { fill: #F7F3FA; stroke: #E6DCEF; stroke-width: 1.6; }
+.cerebro__rama line { stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; opacity: 0.9; }
+.cerebro__rama circle { fill: currentColor; }
+.cerebro__rama--lectura { color: var(--brand); }
+.cerebro__rama--cancion { color: var(--accent); }
+.cerebro__rama--juego { color: #2F7A55; }
+.cerebro__rama--conversacion { color: #8A5A12; }
+.cerebro__rama line { stroke-dasharray: 60; animation: cerebro-trazo 420ms ease-out both; }
+.cerebro__rama circle { animation: cerebro-brote 300ms ease-out both; }
+.cerebro__rama, .cerebro__rama line { animation-delay: calc(var(--orden) * 22ms); }
+.cerebro__rama circle { animation-delay: calc(var(--orden) * 22ms + 260ms); }
+.cerebro--creciendo .cerebro__rama.is-newest circle { animation: cerebro-pulso 1100ms 300ms ease-out both; }
+@keyframes cerebro-trazo { from { stroke-dashoffset: 60; } to { stroke-dashoffset: 0; } }
+@keyframes cerebro-brote { from { r: 0; } to { r: 2.4; } }
+@keyframes cerebro-pulso { 0% { r: 2.4; } 35% { r: 7; opacity: 0.55; } 100% { r: 3.2; opacity: 1; } }
+.cerebro__cifra { margin: 0.5rem 0 0.25rem; font-size: 15px; }
+.cerebro__leyenda {
+  list-style: none; margin: 0.4rem 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3rem 0.85rem;
+  font-size: 14px; color: var(--ink-soft);
+}
+.cerebro__leyenda li { display: flex; align-items: center; gap: 0.3rem; }
+.cerebro__punto { width: 0.6rem; height: 0.6rem; border-radius: 50%; background: currentColor; }
+
+/* --- messages ------------------------------------------------------------ */
+.hilo { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.mensaje {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px 18px; border-radius: var(--radius-control); border: 1px solid var(--line);
+}
+.mensaje__cabecera { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.mensaje__estado { font-size: 13px; color: var(--ink-soft); }
+.mensaje__estado--ok { color: var(--ok); }
+.mensaje__texto { font-family: var(--font-read); font-size: 17px; line-height: 1.5; }
+.respuesta {
+  margin-top: 4px; padding: 12px 14px; border-radius: 10px;
+  background: var(--surface); border-left: 3px solid var(--morado);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.respuesta__autor { font-size: 13px; font-weight: 700; color: var(--morado-text); }
+.respuesta__texto { font-family: var(--font-read); font-size: 16px; line-height: 1.5; }
+
+/* --- privacy ------------------------------------------------------------- */
+.filas-datos { border-top: 1px solid var(--line); }
+.filas-datos div { display: flex; flex-direction: column; gap: 3px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+.filas-datos dt { font-size: 17px; }
+.filas-datos dd { font-size: 15px; line-height: 1.5; color: var(--ink-soft); }
+.interruptor-caja {
+  display: flex; gap: 14px; align-items: flex-start; padding: 14px;
+  border-radius: 16px; background: var(--surface); border: 1px solid var(--line);
+}
+.interruptor {
+  position: relative; flex: none; width: 52px; height: 30px; padding: 0;
+  border: 0; border-radius: 15px; background: var(--line-strong); cursor: pointer;
+  transition: background-color var(--ease);
+}
+/* A 52×30 switch with a 56px hit area around it. */
+.interruptor::before { content: ''; position: absolute; inset: -13px -2px; }
+.interruptor[aria-checked='true'] { background: var(--morado); }
+.interruptor:disabled { opacity: 0.55; cursor: not-allowed; }
+.interruptor__perilla {
+  position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+  border-radius: 50%; background: #ffffff; transition: transform var(--ease);
+}
+.interruptor[aria-checked='true'] .interruptor__perilla { transform: translateX(22px); }
+.interruptor__titulo { font-size: 17px; }
+
+/* --- activation ---------------------------------------------------------- */
+.lockup { width: 168px; height: auto; display: block; margin: -12px 0 -14px -4px; }
+.formulario { display: flex; flex-direction: column; gap: 22px; }
+.error-amable { font-size: 15px; line-height: 1.5; color: var(--alert); }
+
+/* --- bottom tabs (D-023: they stay, restyled) ---------------------------- */
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 2;
+  display: flex; background: var(--paper); border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.tabs button {
+  flex: 1; min-height: var(--touch); border: 0; border-top: 3px solid transparent;
+  background: none; cursor: pointer; font-size: 15px; color: var(--ink-soft);
+  transition: color var(--ease), border-color var(--ease);
+}
+.tabs button[aria-current='page'] { color: var(--brand); font-weight: 700; border-top-color: var(--brand); }
+
+/* --- heredado: se borra en la tarea 6.2 ----------------------------------- */
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.85rem; }
+.topbar { background: var(--paper); padding: 0.7rem var(--gap) 0.6rem; margin: 0 calc(-1 * var(--gap)); border-bottom: 1px solid var(--line); }
+.topbar h1 { margin: 0; font-size: 1.15rem; color: var(--brand); }
+.marca { display: flex; align-items: baseline; gap: 0.3em; color: var(--brand); font-size: 1.2rem; font-weight: 700; }
+.marca__menor, .marca__pais { font-size: 0.62em; }
+.banner { display: flex; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius); margin: 0.75rem 0; font-size: 0.9rem; border: 1px solid var(--line-strong); background: var(--surface); }
+.banner--error { color: var(--alert); }
+.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--gap); margin: 0.75rem 0; }
+.card--muted { background: var(--surface); }
+.entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
+.entry__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
+.tag { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 1rem; background: var(--accent-soft); color: var(--accent); }
+.tag--pending { background: var(--warn-soft); color: var(--warn); }
+.tag--ok { background: var(--paper); color: var(--ok); }
+.thread-reply { border-left: 3px solid var(--morado); background: var(--surface); padding: 0.5rem 0.75rem; margin: 0.75rem 0 0 0.5rem; }
+label { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+  .cerebro__rama line { stroke-dashoffset: 0; }
+}
+```
+
+- [ ] **Step 2: Agregar los tokens del gestor al principio de `web/src/gestor/gestor.css`**
+
+Inserte este bloque arriba del todo, sin tocar el resto del archivo (se reescribe en la fase 5):
+
+```css
+:root {
+  --g-paper: #F6F4F9;
+  --g-surface: #FFFFFF;
+  --g-line: #E6E0EC;
+  --g-line-soft: #EFEAF3;
+  --g-line-strong: #DED6E6;
+  --g-head: #FAF8FC;
+  --g-ink-soft: #554A66;
+  --g-ink-faint: #726A7F;
+  --g-dark: #241A33;
+  --g-purple: #7B4C99;
+  --g-select: #F6F0FA;
+}
+```
+
+- [ ] **Step 3: Correr el chequeo de contraste, ahora en verde**
+
+Run: `cd web && node scripts/check-contrast.mjs`
+Expected: todas las líneas en `ok`, la nota del coral cerca de 3.67:1, y el cierre
+`Todos los pares cumplen su umbral y ningún relleno se usa como texto.` Si un par de los que lista el
+README falla, **no toque el token para que pase**: pare y avise. El valor viene del diseño.
+
+- [ ] **Step 4: Tests, build y revisión visual rápida**
+
+```bash
+cd web && npm test && npm run build
+npx vite preview --port 4173
+```
+Abra `http://localhost:4173/app` a 390px. Espere fondo blanco, Atkinson en la UI y botones coral con
+tinta oscura. Las pantallas todavía tienen la estructura vieja; eso cambia en la fase 4.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add web/src/shared/styles.css web/src/gestor/gestor.css web/scripts/check-contrast.mjs
+git commit -m "feat(web): Nacidos para Leer tokens, type and family stylesheet
+
+White paper, lilac surface, coral and purple as fills only. check-contrast now reads both
+stylesheets and fails if --coral or --morado is ever used as a text colour.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+```
