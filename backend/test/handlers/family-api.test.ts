@@ -48,6 +48,9 @@ class FakeFamilyStore implements FamilyStore {
   requestedWeeks: number[] = [];
   failNextWrite = false;
   consentChanges: NotesConsentChange[] = [];
+  consentFamilyIds: string[] = [];
+  /** Mirrors `notesConsentAt` on META: the time of the change that set the flag. */
+  notesConsentAt: string | null = null;
 
   async getContext(): Promise<FamilyContext | null> {
     return this.context;
@@ -76,9 +79,14 @@ class FakeFamilyStore implements FamilyStore {
   async listLogEntries(): Promise<LogEntry[]> {
     return this.logs;
   }
-  async putNotesConsent(_familyId: string, change: NotesConsentChange): Promise<void> {
+  async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
+    this.consentFamilyIds.push(familyId);
+    // Same semantics as the adapter: the proof is always written, the flag only by a newer change.
     this.consentChanges = [...this.consentChanges.filter((c) => c.clientId !== change.clientId), change];
-    this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    if (this.notesConsentAt === null || this.notesConsentAt < change.at) {
+      this.notesConsentAt = change.at;
+      this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    }
   }
 }
 
@@ -509,6 +517,55 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
       consentItem({ clientId: 'c', version: '' }),
     ], TODAY, NOW);
     assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado', 'rechazado']);
+    assert.equal(store.consentChanges.length, 0);
+  });
+
+  test('un cambio más viejo que llega después no cambia el permiso, pero queda registrado', async () => {
+    // The offline queue does not preserve order, and two phones can send crossed changes.
+    const [nuevo] = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'nuevo', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+    ], TODAY, NOW);
+    const [viejo] = await applySync(store, store.context, FATHER, [
+      consentItem({ clientId: 'viejo', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.equal(nuevo?.status, 'ok');
+    assert.equal(viejo?.status, 'ok', 'processed correctly: must not be retried nor rejected');
+    assert.equal(store.context.freeTextNotesAuthorized, true);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('en un mismo lote en desorden, gana la elección más reciente', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'nuevo', notesAuthorized: false, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'viejo', notesAuthorized: true, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.deepEqual(results.map((r) => r.status), ['ok', 'ok']);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('una hora del futuro se recorta a la hora de recepción', async () => {
+    // A phone clock set ahead must not win every later comparison.
+    await applySync(store, store.context, MOTHER, [consentItem({ at: '2027-01-01T00:00:00.000Z' })], TODAY, NOW);
+    assert.equal(store.consentChanges[0]?.at, NOW.toISOString());
+  });
+
+  test('ignora un changedBy o un familyId que vengan en el cuerpo', async () => {
+    await applySync(store, store.context, MOTHER, [
+      consentItem({ changedBy: 'intruso', familyId: 'otra-familia' }),
+    ], TODAY, NOW);
+    assert.equal(store.consentChanges[0]?.changedBy, MOTHER);
+    assert.deepEqual(store.consentFamilyIds, [store.context.familyId]);
+  });
+
+  test('rechaza un cambio sin clientId o con clientId en blanco', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: undefined }),
+      consentItem({ clientId: '   ' }),
+    ], TODAY, NOW);
+    assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado']);
     assert.equal(store.consentChanges.length, 0);
   });
 });

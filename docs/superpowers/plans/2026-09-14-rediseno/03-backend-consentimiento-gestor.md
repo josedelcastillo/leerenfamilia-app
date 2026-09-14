@@ -21,10 +21,18 @@ En `family-api.test.ts`, importe `NotesConsentChange` desde `family-ports.ts` y 
 
 ```ts
   consentChanges: NotesConsentChange[] = [];
+  consentFamilyIds: string[] = [];
+  /** Mirrors `notesConsentAt` on META: the time of the change that set the flag. */
+  notesConsentAt: string | null = null;
 
-  async putNotesConsent(_familyId: string, change: NotesConsentChange): Promise<void> {
+  async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
+    this.consentFamilyIds.push(familyId);
+    // Same semantics as the adapter: the proof is always written, the flag only by a newer change.
     this.consentChanges = [...this.consentChanges.filter((c) => c.clientId !== change.clientId), change];
-    this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    if (this.notesConsentAt === null || this.notesConsentAt < change.at) {
+      this.notesConsentAt = change.at;
+      this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    }
   }
 ```
 
@@ -75,6 +83,55 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado', 'rechazado']);
     assert.equal(store.consentChanges.length, 0);
   });
+
+  test('un cambio más viejo que llega después no cambia el permiso, pero queda registrado', async () => {
+    // The offline queue does not preserve order, and two phones can send crossed changes.
+    const [nuevo] = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'nuevo', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+    ], TODAY, NOW);
+    const [viejo] = await applySync(store, store.context, FATHER, [
+      consentItem({ clientId: 'viejo', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.equal(nuevo?.status, 'ok');
+    assert.equal(viejo?.status, 'ok', 'processed correctly: must not be retried nor rejected');
+    assert.equal(store.context.freeTextNotesAuthorized, true);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('en un mismo lote en desorden, gana la elección más reciente', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'nuevo', notesAuthorized: false, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'viejo', notesAuthorized: true, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.deepEqual(results.map((r) => r.status), ['ok', 'ok']);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('una hora del futuro se recorta a la hora de recepción', async () => {
+    // A phone clock set ahead must not win every later comparison.
+    await applySync(store, store.context, MOTHER, [consentItem({ at: '2027-01-01T00:00:00.000Z' })], TODAY, NOW);
+    assert.equal(store.consentChanges[0]?.at, NOW.toISOString());
+  });
+
+  test('ignora un changedBy o un familyId que vengan en el cuerpo', async () => {
+    await applySync(store, store.context, MOTHER, [
+      consentItem({ changedBy: 'intruso', familyId: 'otra-familia' }),
+    ], TODAY, NOW);
+    assert.equal(store.consentChanges[0]?.changedBy, MOTHER);
+    assert.deepEqual(store.consentFamilyIds, [store.context.familyId]);
+  });
+
+  test('rechaza un cambio sin clientId o con clientId en blanco', async () => {
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: undefined }),
+      consentItem({ clientId: '   ' }),
+    ], TODAY, NOW);
+    assert.deepEqual(results.map((r) => r.status), ['rechazado', 'rechazado']);
+    assert.equal(store.consentChanges.length, 0);
+  });
 });
 
 describe('historial propio: estado para la pantalla de privacidad', () => {
@@ -118,7 +175,10 @@ En `family-ports.ts`, antes de `FamilyStore`:
 export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
-  /** When the caregiver flipped the switch, from the device's clock. */
+  /**
+   * When the caregiver flipped the switch, from the device's clock clamped to the receipt time. The
+   * newest change wins by this time, not by arrival order.
+   */
   readonly at: string;
   /** Version of the text shown on the privacy screen when the change was made. */
   readonly version: string;
@@ -133,47 +193,60 @@ y agregue a `FamilyStore`:
   putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void>;
 ```
 
-En `adapters/family-store.ts`, importe `NotesConsentChange` y agregue el método después de `putAccess`:
+En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (de `@aws-sdk/lib-dynamodb`;
+`TransactWriteCommand` se queda, lo usa `createFamily`) y agregue el método después de `putAccess`:
 
 ```ts
   /**
-   * The proof of the change and the flag it changes land together or not at all (D-025). The flag is
-   * what `openFamilyDetail` and the export read, so revoking hides every note already sent — the
-   * filter is on read (rule 8), which is what makes a revocation retroactive for free.
+   * Proof first, then the flag, and the newest change wins by its own time (D-025).
+   *
+   * The offline queue does not preserve order and two caregivers' phones can deliver crossed changes,
+   * so the flag on META only moves for a change strictly newer than `notesConsentAt`, the time of
+   * the change that set it. A stale change still gets its CONSENT# proof — it did happen, and the
+   * record is evidence of what the family chose and when — but it must not flip the flag; its
+   * failed condition is swallowed so the device dequeues it as processed. The proof is keyed by
+   * client id, so a replay overwrites it; if the flag update fails for any other reason the error
+   * propagates and the replay rewrites the same proof.
+   *
+   * The flag is what `openFamilyDetail` and the export read, so revoking hides every note already
+   * sent — the filter is on read (rule 8), which is what makes a revocation retroactive for free.
    */
   async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
     await this.#doc.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            Put: {
-              TableName: this.#table,
-              Item: {
-                PK: KEY.family(familyId),
-                SK: SK.consentChange(change.at, change.clientId),
-                entity: 'consent',
-                familyId,
-                channel: 'pwa',
-                version: change.version,
-                acceptedAt: change.at,
-                freeTextNotesAuthorized: change.notesAuthorized,
-                changedBy: change.changedBy,
-                clientId: change.clientId,
-              },
-            },
-          },
-          {
-            Update: {
-              TableName: this.#table,
-              Key: { PK: KEY.family(familyId), SK: SK.meta },
-              UpdateExpression: 'SET freeTextNotesAuthorized = :value',
-              ConditionExpression: 'attribute_exists(PK)',
-              ExpressionAttributeValues: { ':value': change.notesAuthorized },
-            },
-          },
-        ],
+      new PutCommand({
+        TableName: this.#table,
+        Item: {
+          PK: KEY.family(familyId),
+          SK: SK.consentChange(change.at, change.clientId),
+          entity: 'consent',
+          familyId,
+          channel: 'pwa',
+          version: change.version,
+          acceptedAt: change.at,
+          freeTextNotesAuthorized: change.notesAuthorized,
+          changedBy: change.changedBy,
+          clientId: change.clientId,
+        },
       }),
     );
+    try {
+      await this.#doc.send(
+        new UpdateCommand({
+          TableName: this.#table,
+          Key: { PK: KEY.family(familyId), SK: SK.meta },
+          UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
+          // ISO-8601 UTC strings from toISOString() order correctly as strings.
+          ConditionExpression:
+            'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt < :at)',
+          ExpressionAttributeValues: { ':value': change.notesAuthorized, ':at': change.at },
+        }),
+      );
+    } catch (error) {
+      if ((error as { name?: string }).name === 'ConditionalCheckFailedException') {
+        return; // Stale: a newer change already set the flag.
+      }
+      throw error;
+    }
   }
 ```
 
@@ -193,14 +266,20 @@ En `tracking/logic.ts`:
         const notesAuthorized = item['notesAuthorized'];
         const at = String(item['at'] ?? '');
         const version = String(item['version'] ?? '').trim();
-        if (typeof notesAuthorized !== 'boolean' || Number.isNaN(Date.parse(at)) || version === '') {
+        const clientId: unknown = item.clientId;
+        if (
+          typeof clientId !== 'string' || clientId.trim() === '' ||
+          typeof notesAuthorized !== 'boolean' || Number.isNaN(Date.parse(at)) || version === ''
+        ) {
           // Same rejection code as a malformed log entry: the device's queue handles both alike.
           throw new DomainError('invalid_log_entry', 'Cambio de consentimiento incompleto');
         }
         await store.putNotesConsent(context.familyId, {
-          clientId: item.clientId,
+          clientId,
           notesAuthorized,
-          at: new Date(at).toISOString(),
+          // The newest change wins by this time (D-025), so a phone clock set in the future would win
+          // every later comparison: clamp it to when the server received it.
+          at: new Date(Math.min(Date.parse(at), receivedAt.getTime())).toISOString(),
           version,
           changedBy: principalMsisdn,
         });

@@ -40,7 +40,10 @@ export interface StoredFeedback {
 export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
-  /** When the caregiver flipped the switch, from the device's clock. */
+  /**
+   * When the caregiver flipped the switch, from the device's clock clamped to the receipt time. The
+   * newest change wins by this time, not by arrival order.
+   */
   readonly at: string;
   /** Version of the text shown on the privacy screen when the change was made. */
   readonly version: string;

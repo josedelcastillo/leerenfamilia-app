@@ -75,14 +75,20 @@ export async function applySync(
         const notesAuthorized = item['notesAuthorized'];
         const at = String(item['at'] ?? '');
         const version = String(item['version'] ?? '').trim();
-        if (typeof notesAuthorized !== 'boolean' || Number.isNaN(Date.parse(at)) || version === '') {
+        const clientId: unknown = item.clientId;
+        if (
+          typeof clientId !== 'string' || clientId.trim() === '' ||
+          typeof notesAuthorized !== 'boolean' || Number.isNaN(Date.parse(at)) || version === ''
+        ) {
           // Same rejection code as a malformed log entry: the device's queue handles both alike.
           throw new DomainError('invalid_log_entry', 'Cambio de consentimiento incompleto');
         }
         await store.putNotesConsent(context.familyId, {
-          clientId: item.clientId,
+          clientId,
           notesAuthorized,
-          at: new Date(at).toISOString(),
+          // The newest change wins by this time (D-025), so a phone clock set in the future would win
+          // every later comparison: clamp it to when the server received it.
+          at: new Date(Math.min(Date.parse(at), receivedAt.getTime())).toISOString(),
           version,
           changedBy: principalMsisdn,
         });

@@ -44,8 +44,11 @@ descartadas y consecuencias. El contenido mínimo de cada una:
   "¿fue otro día?" en la pantalla 3.
 
 **D-025 — El consentimiento de notas se cambia desde la PWA, sin Lambda nueva**
-- Ítem `consentimiento` en la misma cola offline → Lambda de tracking → transacción que escribe
-  `CONSENT#<ts>#<clientId>` (canal `pwa`, versión, quién) y cambia `freeTextNotesAuthorized` en `META`.
+- Ítem `consentimiento` en la misma cola offline → Lambda de tracking → escribe
+  `CONSENT#<ts>#<clientId>` (canal `pwa`, versión, quién) y luego cambia `freeTextNotesAuthorized` en `META`.
+- El cambio más reciente gana por su hora (`notesConsentAt` en META), no por orden de llegada: la cola
+  offline no preserva el orden y dos teléfonos pueden enviar cambios cruzados. Un cambio viejo deja su
+  registro de prueba pero no toca el permiso. La hora del dispositivo se recorta a la de recepción.
 - Revocar oculta también las notas ya enviadas, sin código extra: el filtro es en lectura (regla 8).
 - El texto de la pantalla 6 es borrador, pendiente de revisión legal, como el del consentimiento.
 
