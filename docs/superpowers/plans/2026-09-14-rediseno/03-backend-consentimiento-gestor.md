@@ -814,7 +814,7 @@ describe('auditoría de accesos (pantalla 14)', () => {
       audited('2026-09-19T17:00:00.000Z'),
       audited('2026-07-01T10:00:00.000Z'),
     ];
-    const entries = await listRecentAudit(store, GESTOR, TODAY);
+    const entries = await listRecentAudit(store, GESTOR, NOW);
     assert.deepEqual(entries.map((e) => e.at), [
       '2026-09-20T09:00:00.000Z', '2026-09-19T17:00:00.000Z', '2026-08-31T10:00:00.000Z',
     ]);
@@ -824,9 +824,16 @@ describe('auditoría de accesos (pantalla 14)', () => {
     assert.deepEqual(recentAuditMonths(isoDate('2026-01-15'), 2), ['2026-01', '2025-12']);
   });
 
+  test('encuentra lo registrado la última noche de mes en Lima, que ya cae en el mes UTC siguiente', async () => {
+    // 2026-09-30 21:00 in Lima is 2026-10-01T02:00Z: writeAudit puts it in AUDIT#2026-10.
+    store.audit = [audited('2026-10-01T02:00:00.000Z'), audited('2026-09-30T15:00:00.000Z')];
+    const entries = await listRecentAudit(store, GESTOR, new Date('2026-10-01T02:30:00.000Z'));
+    assert.deepEqual(entries.map((e) => e.at), ['2026-10-01T02:00:00.000Z', '2026-09-30T15:00:00.000Z']);
+  });
+
   test('rechaza a quien no es gestor', async () => {
     await assert.rejects(
-      () => listRecentAudit(store, { ...GESTOR, groups: [] }, TODAY),
+      () => listRecentAudit(store, { ...GESTOR, groups: [] }, NOW),
       (e: unknown) => e instanceof DomainError && e.code === 'forbidden',
     );
   });
@@ -926,15 +933,19 @@ export function recentAuditMonths(today: IsoDate, count: number): string[] {
 /**
  * The access log as a screen (14). The full log is still one export away (`auditoria.csv`); this
  * shows the last two months so it answers "who opened what, recently" without a Scan.
+ *
+ * The window is computed from the UTC month of `now`, the same clock `writeAudit` partitions by
+ * (`AUDIT#<UTC yyyy-mm>`). Using the Lima day here would miss the entries written on the last Lima
+ * evening of a month, which already sit in the next UTC month.
  */
 export async function listRecentAudit(
   store: AdminStore,
   gestor: Gestor,
-  today: IsoDate,
+  now: Date,
   months = 2,
 ): Promise<AuditEntry[]> {
   assertIsGestor(gestor);
-  const entries = await store.listAudit(recentAuditMonths(today, months));
+  const entries = await store.listAudit(recentAuditMonths(now.toISOString().slice(0, 10) as IsoDate, months));
   return [...entries].sort((a, b) => b.at.localeCompare(a.at));
 }
 ```
@@ -999,7 +1010,7 @@ y agregue `listRecentAudit` a la lista que se importa de `./logic.ts`. Después 
     }
 
     if (path[0] === 'auditoria' && method === 'GET') {
-      return json(200, { entradas: await listRecentAudit(store, gestor, today) });
+      return json(200, { entradas: await listRecentAudit(store, gestor, now) });
     }
 ```
 

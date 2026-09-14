@@ -309,14 +309,18 @@ export function recentAuditMonths(today: IsoDate, count: number): string[] {
 /**
  * The access log as a screen (14). The full log is still one export away (`auditoria.csv`); this
  * shows the last two months so it answers "who opened what, recently" without a Scan.
+ *
+ * The window is computed from the UTC month of `now`, the same clock `writeAudit` partitions by
+ * (`AUDIT#<UTC yyyy-mm>`). Using the Lima day here would miss the entries written on the last Lima
+ * evening of a month, which already sit in the next UTC month.
  */
 export async function listRecentAudit(
   store: AdminStore,
   gestor: Gestor,
-  today: IsoDate,
+  now: Date,
   months = 2,
 ): Promise<AuditEntry[]> {
   assertIsGestor(gestor);
-  const entries = await store.listAudit(recentAuditMonths(today, months));
+  const entries = await store.listAudit(recentAuditMonths(now.toISOString().slice(0, 10) as IsoDate, months));
   return [...entries].sort((a, b) => b.at.localeCompare(a.at));
 }

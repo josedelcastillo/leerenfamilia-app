@@ -423,7 +423,7 @@ describe('auditoría de accesos (pantalla 14)', () => {
       audited('2026-09-19T17:00:00.000Z'),
       audited('2026-07-01T10:00:00.000Z'),
     ];
-    const entries = await listRecentAudit(store, GESTOR, TODAY);
+    const entries = await listRecentAudit(store, GESTOR, NOW);
     assert.deepEqual(entries.map((e) => e.at), [
       '2026-09-20T09:00:00.000Z', '2026-09-19T17:00:00.000Z', '2026-08-31T10:00:00.000Z',
     ]);
@@ -433,9 +433,16 @@ describe('auditoría de accesos (pantalla 14)', () => {
     assert.deepEqual(recentAuditMonths(isoDate('2026-01-15'), 2), ['2026-01', '2025-12']);
   });
 
+  test('encuentra lo registrado la última noche de mes en Lima, que ya cae en el mes UTC siguiente', async () => {
+    // 2026-09-30 21:00 in Lima is 2026-10-01T02:00Z: writeAudit puts it in AUDIT#2026-10.
+    store.audit = [audited('2026-10-01T02:00:00.000Z'), audited('2026-09-30T15:00:00.000Z')];
+    const entries = await listRecentAudit(store, GESTOR, new Date('2026-10-01T02:30:00.000Z'));
+    assert.deepEqual(entries.map((e) => e.at), ['2026-10-01T02:00:00.000Z', '2026-09-30T15:00:00.000Z']);
+  });
+
   test('rechaza a quien no es gestor', async () => {
     await assert.rejects(
-      () => listRecentAudit(store, { ...GESTOR, groups: [] }, TODAY),
+      () => listRecentAudit(store, { ...GESTOR, groups: [] }, NOW),
       (e: unknown) => e instanceof DomainError && e.code === 'forbidden',
     );
   });
