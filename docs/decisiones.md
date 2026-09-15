@@ -891,6 +891,8 @@ recortar ni recolorear, y ahorra unos 700 KB de precache en cada celular. Los or
 - La regla 10 de `CLAUDE.md` cubre ahora `--coral` y `--morado`.
 - Los íconos de la PWA siguen saliendo del lockup PNG y a 32px no se leen. El logo en vector sigue
   pendiente (runbook).
+- El bundle del gestor (`ManagerApp-*`, JS y CSS) queda fuera del precache del service worker (regla
+  9): no llega al celular de una familia. El gestor necesita conexión la primera vez que abre la consola.
 
 ---
 

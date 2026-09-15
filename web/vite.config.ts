@@ -39,8 +39,10 @@ export default defineConfig({
       workbox: {
         // The shell is precached, so the app opens with no connection at all.
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        // Written at deploy time from the stack outputs, so it must never be precached stale.
-        globIgnores: ['**/config.json'],
+        // config.json is written at deploy time from the stack outputs, so it must never be
+        // precached stale. The manager chunk (and its CSS) must never reach a family's phone
+        // (CLAUDE.md rule 9); managers load it from the network the first time.
+        globIgnores: ['**/config.json', '**/ManagerApp-*'],
         navigateFallback: '/index.html',
         // Never let the service worker answer an API call from cache: a stale reading log or a
         // stale feedback thread would be worse than an error the UI can handle.
