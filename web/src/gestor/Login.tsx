@@ -25,14 +25,14 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
   }
 
   return (
-    <main className="app login">
-      <h1>Nacidos para Leer Perú</h1>
-      <p className="muted small">Acceso del equipo de Leer en Familia.</p>
+    <main className="g-login">
+      <div className="g-login__caja">
+        <p className="g-org">Leer en Familia</p>
+        <img className="g-lockup" src="/marca/lockup-horizontal.png" alt="Nacidos para Leer" width={156} />
+        <p className="g-faint">Acceso del equipo.</p>
 
-      {step === 'credenciales' && (
-        <form
-          className="card"
-          onSubmit={(event) => {
+        {step === 'credenciales' && (
+          <form onSubmit={(event) => {
             event.preventDefault();
             void run(async () => {
               const result = await signIn(email, password);
@@ -40,62 +40,54 @@ export function Login({ onSignedIn }: { onSignedIn: () => void }) {
               else if (result.status === 'mfa_requerido') setStep('mfa');
               else setStep('nueva_clave');
             });
-          }}
-        >
-          <label htmlFor="email">Correo</label>
-          <input id="email" type="email" autoComplete="username" required value={email}
-                 onChange={(e) => setEmail(e.target.value)} />
-          <label htmlFor="clave">Contraseña</label>
-          <input id="clave" type="password" autoComplete="current-password" required value={password}
-                 onChange={(e) => setPassword(e.target.value)} />
-          <button type="submit" className="btn" disabled={busy}>Entrar</button>
-        </form>
-      )}
+          }}>
+            <label className="g-campo">Correo
+              <input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            </label>
+            <label className="g-campo">Contraseña
+              <input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </label>
+            <button type="submit" className="g-btn g-btn--primario" disabled={busy}>Entrar</button>
+          </form>
+        )}
 
-      {step === 'mfa' && (
-        <form
-          className="card"
-          onSubmit={(event) => {
+        {step === 'mfa' && (
+          <form onSubmit={(event) => {
             event.preventDefault();
             void run(async () => {
               await submitMfaCode(code);
               onSignedIn();
             });
-          }}
-        >
-          <p className="small muted">
-            Ingresa el código de seis dígitos de tu app de autenticación.
-          </p>
-          <label htmlFor="codigo">Código</label>
-          <input id="codigo" inputMode="numeric" autoComplete="one-time-code" required
-                 pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value)} />
-          <button type="submit" className="btn" disabled={busy}>Verificar</button>
-        </form>
-      )}
+          }}>
+            <p className="g-faint">Ingresa el código de seis dígitos de tu app de autenticación.</p>
+            <label className="g-campo">Código
+              <input inputMode="numeric" autoComplete="one-time-code" required pattern="[0-9]{6}" value={code} onChange={(e) => setCode(e.target.value)} />
+            </label>
+            <button type="submit" className="g-btn g-btn--primario" disabled={busy}>Verificar</button>
+          </form>
+        )}
 
-      {step === 'nueva_clave' && (
-        <form
-          className="card"
-          onSubmit={(event) => {
+        {step === 'nueva_clave' && (
+          <form onSubmit={(event) => {
             event.preventDefault();
             void run(async () => {
               await completeNewPassword(newPassword);
               onSignedIn();
             });
-          }}
-        >
-          <p className="small muted">
-            Es tu primer ingreso. Define una contraseña de al menos 12 caracteres, con mayúsculas,
-            minúsculas, números y símbolos.
-          </p>
-          <label htmlFor="nueva">Nueva contraseña</label>
-          <input id="nueva" type="password" autoComplete="new-password" required minLength={12}
-                 value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
-          <button type="submit" className="btn" disabled={busy}>Guardar</button>
-        </form>
-      )}
+          }}>
+            <p className="g-faint">
+              Es tu primer ingreso. Define una contraseña de al menos 12 caracteres, con mayúsculas, minúsculas,
+              números y símbolos.
+            </p>
+            <label className="g-campo">Nueva contraseña
+              <input type="password" autoComplete="new-password" required minLength={12} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            </label>
+            <button type="submit" className="g-btn g-btn--primario" disabled={busy}>Guardar</button>
+          </form>
+        )}
 
-      {error !== null && <p className="banner banner--error">{error}</p>}
+        {error !== null && <p className="g-error" role="alert">{error}</p>}
+      </div>
     </main>
   );
 }
