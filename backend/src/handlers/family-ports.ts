@@ -41,8 +41,9 @@ export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
   /**
-   * The effective time: the device's clock clamped to the receipt time. The newest change wins by
-   * this time, not by arrival order, and it is what `acceptedAt` and `notesConsentAt` store.
+   * The effective time: the device's clock clamped to the receipt time. A grant only applies when
+   * newer than the last change by this time, not by arrival order (a revocation always applies), and
+   * it is what `acceptedAt` and `notesConsentAt` store.
    */
   readonly at: string;
   /**

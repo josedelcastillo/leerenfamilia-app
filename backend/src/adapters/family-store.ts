@@ -27,6 +27,9 @@ import { GSI1, KEY, SK } from './keys.ts';
 const relationOf = (value: unknown): DeclaredBy | null =>
   value === 'mama' || value === 'papa' || value === 'otra' ? value : null;
 
+const isConditionFailure = (error: unknown): boolean =>
+  (error as { name?: string } | null)?.name === 'ConditionalCheckFailedException';
+
 export class FamilyDataStore implements FamilyStore, EnrollmentStore {
   readonly #doc: DynamoDBDocumentClient;
   readonly #table: string;
@@ -141,17 +144,23 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
   }
 
   /**
-   * Proof first, then the flag, and the newest change wins by its own time (D-025).
+   * Proof first, then the flag: a revocation always applies, a grant only when newer (D-025).
    *
    * The offline queue does not preserve order and two caregivers' phones can deliver crossed changes,
-   * so the flag on META only moves for a change newer than `notesConsentAt`, the time of the change
-   * that set it. On a tie the revocation wins: two changes clamped to the same receipt time arrive
-   * in any order, and when in doubt the notes stay private. A stale change still gets its CONSENT#
-   * proof — it did happen, and the record is evidence of what the family chose and when — but it
-   * must not flip the flag; its failed condition is swallowed so the device dequeues it as
-   * processed. The proof is keyed by the device's own time and the client id, neither of which a
-   * replay changes, so a replay overwrites it; if the flag update fails for any other reason the
-   * error propagates and the replay rewrites the same proof.
+   * so a grant only opens the notes when it is strictly newer than `notesConsentAt`, the time of the
+   * change that last set the flag by winning that comparison. A revocation first tries the same
+   * comparison (winning a tie too), which moves `notesConsentAt`; if it loses — say, a phone with its
+   * clock a few minutes behind revokes right after a grant — it still turns the flag off, without
+   * touching `notesConsentAt`, so a later grant older than the last grant still cannot re-open the
+   * notes. When in doubt, the notes stay private. The price: a grant from a slow clock can be
+   * ignored, which the family sees because the privacy screen shows the server value after sync.
+   *
+   * Every change gets its CONSENT# proof, stale or not — it did happen, and the record is evidence of
+   * what the family chose and when. A stale grant's failed condition is swallowed so the device
+   * dequeues it as processed; so is the revocation fallback's, which only fails without a META (not
+   * possible for a verified session). The proof is keyed by the device's own time and the client id,
+   * neither of which a replay changes, so a replay overwrites it; if a flag update fails for any other
+   * reason the error propagates and the replay rewrites the same proof.
    *
    * The flag is what `openFamilyDetail` and the export read, so revoking hides every note already
    * sent — the filter is on read (rule 8), which is what makes a revocation retroactive for free.
@@ -175,6 +184,7 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
         },
       }),
     );
+    let applied = true;
     try {
       await this.#doc.send(
         new UpdateCommand({
@@ -195,10 +205,30 @@ export class FamilyDataStore implements FamilyStore, EnrollmentStore {
         }),
       );
     } catch (error) {
-      if ((error as { name?: string }).name === 'ConditionalCheckFailedException') {
-        return; // Stale: a newer change already set the flag.
+      if (!isConditionFailure(error)) {
+        throw error;
       }
-      throw error;
+      applied = false;
+    }
+    if (applied || change.notesAuthorized) {
+      return; // Applied, or a stale grant: a newer change already set the flag.
+    }
+    // Reached only by a revocation that lost the time comparison: it still closes the notes.
+    try {
+      await this.#doc.send(
+        new UpdateCommand({
+          TableName: this.#table,
+          Key: { PK: KEY.family(familyId), SK: SK.meta },
+          UpdateExpression: 'SET freeTextNotesAuthorized = :false',
+          ConditionExpression: 'attribute_exists(PK)',
+          ExpressionAttributeValues: { ':false': false },
+        }),
+      );
+    } catch (error) {
+      if (!isConditionFailure(error)) {
+        throw error;
+      }
+      // No META: not possible for a verified session, and nothing to close.
     }
   }
 

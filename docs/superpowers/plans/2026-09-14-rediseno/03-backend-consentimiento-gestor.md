@@ -33,8 +33,9 @@ En `family-api.test.ts`, importe `NotesConsentChange` desde `family-ports.ts` y 
 
   async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
     this.consentFamilyIds.push(familyId);
-    // Same semantics as the adapter: the proof is always written, the flag only by a newer change,
-    // and a revocation wins a tie.
+    // Same semantics as the adapter: the proof is always written; a newer change sets the flag and
+    // `notesConsentAt` (a revocation also on a tie); an older revocation still turns the flag off,
+    // without moving `notesConsentAt`; an older grant is ignored.
     this.consentProofs.set(`${change.deviceAt}#${change.clientId}`, change);
     if (
       this.notesConsentAt === null ||
@@ -43,6 +44,8 @@ En `family-api.test.ts`, importe `NotesConsentChange` desde `family-ports.ts` y 
     ) {
       this.notesConsentAt = change.at;
       this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    } else if (!change.notesAuthorized) {
+      this.context = { ...this.context, freeTextNotesAuthorized: false };
     }
   }
 ```
@@ -95,19 +98,46 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.equal(store.consentChanges.length, 0);
   });
 
-  test('un cambio más viejo que llega después no cambia el permiso, pero queda registrado', async () => {
+  test('una autorización más vieja que llega después no reabre las notas, pero queda registrada', async () => {
     // The offline queue does not preserve order, and two phones can send crossed changes.
     const [nuevo] = await applySync(store, store.context, MOTHER, [
-      consentItem({ clientId: 'nuevo', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'nuevo', notesAuthorized: false, at: '2026-09-20T13:00:00.000Z' }),
     ], TODAY, NOW);
     const [viejo] = await applySync(store, store.context, FATHER, [
-      consentItem({ clientId: 'viejo', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+      consentItem({ clientId: 'viejo', notesAuthorized: true, at: '2026-09-20T12:00:00.000Z' }),
     ], TODAY, NOW);
 
     assert.equal(nuevo?.status, 'ok');
     assert.equal(viejo?.status, 'ok', 'processed correctly: must not be retried nor rejected');
-    assert.equal(store.context.freeTextNotesAuthorized, true);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
     assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('una revocación siempre se aplica, aunque su hora sea más vieja que la última autorización', async () => {
+    // A phone with its clock a few minutes behind revokes right after a grant: in doubt, private.
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.deepEqual(results.map((r) => r.status), ['ok', 'ok']);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('tras una revocación, una autorización más vieja que la última autorización no reabre', async () => {
+    // The revocation that lost the time comparison does not move notesConsentAt, so a grant older
+    // than the last grant (13:00) is still stale, even if it is newer than the revocation (12:00).
+    await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+    await applySync(store, store.context, FATHER, [
+      consentItem({ clientId: 'otorga-vieja', notesAuthorized: true, at: '2026-09-20T12:30:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 3);
   });
 
   test('en un mismo lote en desorden, gana la elección más reciente', async () => {
@@ -354,8 +384,9 @@ export interface NotesConsentChange {
   readonly clientId: string;
   readonly notesAuthorized: boolean;
   /**
-   * The effective time: the device's clock clamped to the receipt time. The newest change wins by
-   * this time, not by arrival order, and it is what `acceptedAt` and `notesConsentAt` store.
+   * The effective time: the device's clock clamped to the receipt time. A grant only applies when
+   * newer than the last change by this time, not by arrival order (a revocation always applies), and
+   * it is what `acceptedAt` and `notesConsentAt` store.
    */
   readonly at: string;
   /**
@@ -381,17 +412,23 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
 
 ```ts
   /**
-   * Proof first, then the flag, and the newest change wins by its own time (D-025).
+   * Proof first, then the flag: a revocation always applies, a grant only when newer (D-025).
    *
    * The offline queue does not preserve order and two caregivers' phones can deliver crossed changes,
-   * so the flag on META only moves for a change newer than `notesConsentAt`, the time of the change
-   * that set it. On a tie the revocation wins: two changes clamped to the same receipt time arrive
-   * in any order, and when in doubt the notes stay private. A stale change still gets its CONSENT#
-   * proof — it did happen, and the record is evidence of what the family chose and when — but it
-   * must not flip the flag; its failed condition is swallowed so the device dequeues it as
-   * processed. The proof is keyed by the device's own time and the client id, neither of which a
-   * replay changes, so a replay overwrites it; if the flag update fails for any other reason the
-   * error propagates and the replay rewrites the same proof.
+   * so a grant only opens the notes when it is strictly newer than `notesConsentAt`, the time of the
+   * change that last set the flag by winning that comparison. A revocation first tries the same
+   * comparison (winning a tie too), which moves `notesConsentAt`; if it loses — say, a phone with its
+   * clock a few minutes behind revokes right after a grant — it still turns the flag off, without
+   * touching `notesConsentAt`, so a later grant older than the last grant still cannot re-open the
+   * notes. When in doubt, the notes stay private. The price: a grant from a slow clock can be
+   * ignored, which the family sees because the privacy screen shows the server value after sync.
+   *
+   * Every change gets its CONSENT# proof, stale or not — it did happen, and the record is evidence of
+   * what the family chose and when. A stale grant's failed condition is swallowed so the device
+   * dequeues it as processed; so is the revocation fallback's, which only fails without a META (not
+   * possible for a verified session). The proof is keyed by the device's own time and the client id,
+   * neither of which a replay changes, so a replay overwrites it; if a flag update fails for any other
+   * reason the error propagates and the replay rewrites the same proof.
    *
    * The flag is what `openFamilyDetail` and the export read, so revoking hides every note already
    * sent — the filter is on read (rule 8), which is what makes a revocation retroactive for free.
@@ -415,15 +452,16 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
         },
       }),
     );
+    let applied = true;
     try {
       await this.#doc.send(
         new UpdateCommand({
           TableName: this.#table,
           Key: { PK: KEY.family(familyId), SK: SK.meta },
           UpdateExpression: 'SET freeTextNotesAuthorized = :value, notesConsentAt = :at',
-          // ISO-8601 UTC strings from toISOString() order correctly as strings.
-          // The tie rule is in the operator, not in a comparison between two values, which DynamoDB
-          // may not accept: a revocation also wins at equal time (<=), a grant only when newer (<).
+          // ISO-8601 UTC strings from toISOString() order correctly as strings. The tie rule is in
+          // the operator, not in a comparison between two values, which DynamoDB may not accept:
+          // a revocation also wins at equal time (<=), a grant only when strictly newer (<).
           ConditionExpression:
             'attribute_exists(PK) AND (attribute_not_exists(notesConsentAt) OR notesConsentAt ' +
             (change.notesAuthorized ? '<' : '<=') +
@@ -435,12 +473,39 @@ En `adapters/family-store.ts`, importe `NotesConsentChange` y `UpdateCommand` (d
         }),
       );
     } catch (error) {
-      if ((error as { name?: string }).name === 'ConditionalCheckFailedException') {
-        return; // Stale: a newer change already set the flag.
+      if (!isConditionFailure(error)) {
+        throw error;
       }
-      throw error;
+      applied = false;
+    }
+    if (applied || change.notesAuthorized) {
+      return; // Applied, or a stale grant: a newer change already set the flag.
+    }
+    // Reached only by a revocation that lost the time comparison: it still closes the notes.
+    try {
+      await this.#doc.send(
+        new UpdateCommand({
+          TableName: this.#table,
+          Key: { PK: KEY.family(familyId), SK: SK.meta },
+          UpdateExpression: 'SET freeTextNotesAuthorized = :false',
+          ConditionExpression: 'attribute_exists(PK)',
+          ExpressionAttributeValues: { ':false': false },
+        }),
+      );
+    } catch (error) {
+      if (!isConditionFailure(error)) {
+        throw error;
+      }
+      // No META: not possible for a verified session, and nothing to close.
     }
   }
+```
+
+Y, al principio del archivo, junto a `relationOf`:
+
+```ts
+const isConditionFailure = (error: unknown): boolean =>
+  (error as { name?: string } | null)?.name === 'ConditionalCheckFailedException';
 ```
 
 En `tracking/logic.ts`:
@@ -470,8 +535,8 @@ En `tracking/logic.ts`:
         await store.putNotesConsent(context.familyId, {
           clientId,
           notesAuthorized,
-          // The newest change wins by this time (D-025), so a phone clock set in the future would win
-          // every later comparison: clamp it to when the server received it.
+          // A grant only applies when newer by this time (D-025), so a phone clock set in the future
+          // would win every later comparison: clamp it to when the server received it.
           at: new Date(Math.min(Date.parse(at), receivedAt.getTime())).toISOString(),
           // The proof is keyed by the device's own time, which a retry does not change.
           deviceAt: new Date(at).toISOString(),

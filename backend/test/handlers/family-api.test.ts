@@ -86,8 +86,9 @@ class FakeFamilyStore implements FamilyStore {
   }
   async putNotesConsent(familyId: string, change: NotesConsentChange): Promise<void> {
     this.consentFamilyIds.push(familyId);
-    // Same semantics as the adapter: the proof is always written, the flag only by a newer change,
-    // and a revocation wins a tie.
+    // Same semantics as the adapter: the proof is always written; a newer change sets the flag and
+    // `notesConsentAt` (a revocation also on a tie); an older revocation still turns the flag off,
+    // without moving `notesConsentAt`; an older grant is ignored.
     this.consentProofs.set(`${change.deviceAt}#${change.clientId}`, change);
     if (
       this.notesConsentAt === null ||
@@ -96,6 +97,8 @@ class FakeFamilyStore implements FamilyStore {
     ) {
       this.notesConsentAt = change.at;
       this.context = { ...this.context, freeTextNotesAuthorized: change.notesAuthorized };
+    } else if (!change.notesAuthorized) {
+      this.context = { ...this.context, freeTextNotesAuthorized: false };
     }
   }
 }
@@ -530,19 +533,46 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
     assert.equal(store.consentChanges.length, 0);
   });
 
-  test('un cambio más viejo que llega después no cambia el permiso, pero queda registrado', async () => {
+  test('una autorización más vieja que llega después no reabre las notas, pero queda registrada', async () => {
     // The offline queue does not preserve order, and two phones can send crossed changes.
     const [nuevo] = await applySync(store, store.context, MOTHER, [
-      consentItem({ clientId: 'nuevo', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'nuevo', notesAuthorized: false, at: '2026-09-20T13:00:00.000Z' }),
     ], TODAY, NOW);
     const [viejo] = await applySync(store, store.context, FATHER, [
-      consentItem({ clientId: 'viejo', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+      consentItem({ clientId: 'viejo', notesAuthorized: true, at: '2026-09-20T12:00:00.000Z' }),
     ], TODAY, NOW);
 
     assert.equal(nuevo?.status, 'ok');
     assert.equal(viejo?.status, 'ok', 'processed correctly: must not be retried nor rejected');
-    assert.equal(store.context.freeTextNotesAuthorized, true);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
     assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('una revocación siempre se aplica, aunque su hora sea más vieja que la última autorización', async () => {
+    // A phone with its clock a few minutes behind revokes right after a grant: in doubt, private.
+    const results = await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.deepEqual(results.map((r) => r.status), ['ok', 'ok']);
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 2);
+  });
+
+  test('tras una revocación, una autorización más vieja que la última autorización no reabre', async () => {
+    // The revocation that lost the time comparison does not move notesConsentAt, so a grant older
+    // than the last grant (13:00) is still stale, even if it is newer than the revocation (12:00).
+    await applySync(store, store.context, MOTHER, [
+      consentItem({ clientId: 'otorga', notesAuthorized: true, at: '2026-09-20T13:00:00.000Z' }),
+      consentItem({ clientId: 'revoca', notesAuthorized: false, at: '2026-09-20T12:00:00.000Z' }),
+    ], TODAY, NOW);
+    await applySync(store, store.context, FATHER, [
+      consentItem({ clientId: 'otorga-vieja', notesAuthorized: true, at: '2026-09-20T12:30:00.000Z' }),
+    ], TODAY, NOW);
+
+    assert.equal(store.context.freeTextNotesAuthorized, false);
+    assert.equal(store.consentChanges.length, 3);
   });
 
   test('en un mismo lote en desorden, gana la elección más reciente', async () => {

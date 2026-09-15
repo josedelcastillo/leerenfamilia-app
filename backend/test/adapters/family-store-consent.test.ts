@@ -12,14 +12,23 @@ interface SentCommand {
   readonly input: Record<string, any>;
 }
 
-/** Records every command and, when told to, fails one kind of command with a named error. */
+/**
+ * Records every command and, when told to, fails commands with a named error: `failNext` fails the
+ * next matching commands once each, in order; `failOn` fails every matching command after that.
+ */
 class StubDoc {
   readonly sent: SentCommand[] = [];
   failOn: { command: string; errorName: string } | null = null;
+  failNext: Array<{ command: string; errorName: string }> = [];
 
   async send(command: { constructor: { name: string }; input: Record<string, any> }): Promise<unknown> {
     const name = command.constructor.name;
     this.sent.push({ name, input: command.input });
+    if (this.failNext[0]?.command === name) {
+      const error = new Error('stub failure');
+      error.name = this.failNext.shift()!.errorName;
+      throw error;
+    }
     if (this.failOn?.command === name) {
       const error = new Error('stub failure');
       error.name = this.failOn.errorName;
@@ -83,11 +92,54 @@ describe('FamilyDataStore.putNotesConsent', () => {
     assert.equal(Object.keys(update['ExpressionAttributeValues']).sort().join(','), ':at,:value');
   });
 
-  test('swallows a failed condition: the change is stale, not an error', async () => {
+  test('swallows a failed condition on a grant: the change is stale, and nothing else is sent', async () => {
     const stub = new StubDoc();
     stub.failOn = { command: 'UpdateCommand', errorName: 'ConditionalCheckFailedException' };
     await assert.doesNotReject(() => storeWith(stub).putNotesConsent('fam-1', CHANGE));
-    assert.equal(stub.sent.length, 2, 'the proof was still written');
+    assert.deepEqual(stub.sent.map((c) => c.name), ['PutCommand', 'UpdateCommand'], 'the proof was still written');
+  });
+
+  test('a stale revocation still turns the flag off, without moving notesConsentAt', async () => {
+    const stub = new StubDoc();
+    stub.failNext = [{ command: 'UpdateCommand', errorName: 'ConditionalCheckFailedException' }];
+    await storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false });
+
+    assert.deepEqual(stub.sent.map((c) => c.name), ['PutCommand', 'UpdateCommand', 'UpdateCommand']);
+    const fallback = stub.sent[2]!.input;
+    assert.equal(fallback['TableName'], 'tabla');
+    assert.deepEqual(fallback['Key'], { PK: 'FAMILY#fam-1', SK: 'META' });
+    assert.equal(fallback['UpdateExpression'], 'SET freeTextNotesAuthorized = :false');
+    assert.equal(fallback['ConditionExpression'], 'attribute_exists(PK)');
+    assert.deepEqual(fallback['ExpressionAttributeValues'], { ':false': false });
+    // Left alone, so a later grant older than the last grant still cannot re-open the notes.
+    assert.equal(fallback['UpdateExpression'].includes('notesConsentAt'), false);
+    assert.equal(fallback['ConditionExpression'].includes('notesConsentAt'), false);
+  });
+
+  test('a revocation that is newer needs no second update', async () => {
+    const stub = new StubDoc();
+    await storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false });
+    assert.deepEqual(stub.sent.map((c) => c.name), ['PutCommand', 'UpdateCommand']);
+  });
+
+  test('swallows a failed condition on the revocation fallback too (no META)', async () => {
+    const stub = new StubDoc();
+    stub.failOn = { command: 'UpdateCommand', errorName: 'ConditionalCheckFailedException' };
+    await assert.doesNotReject(() =>
+      storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false }));
+    assert.equal(stub.sent.length, 3);
+  });
+
+  test('rethrows any other error on the revocation fallback, so the device retries', async () => {
+    const stub = new StubDoc();
+    stub.failNext = [
+      { command: 'UpdateCommand', errorName: 'ConditionalCheckFailedException' },
+      { command: 'UpdateCommand', errorName: 'ProvisionedThroughputExceededException' },
+    ];
+    await assert.rejects(
+      () => storeWith(stub).putNotesConsent('fam-1', { ...CHANGE, notesAuthorized: false }),
+      { name: 'ProvisionedThroughputExceededException' },
+    );
   });
 
   test('rethrows any other error on the flag update, so the device retries', async () => {

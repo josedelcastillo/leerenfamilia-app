@@ -46,13 +46,17 @@ descartadas y consecuencias. El contenido mínimo de cada una:
 **D-025 — El consentimiento de notas se cambia desde la PWA, sin Lambda nueva**
 - Ítem `consentimiento` en la misma cola offline → Lambda de tracking → escribe
   `CONSENT#<ts>#<clientId>` (canal `pwa`, versión, quién) y luego cambia `freeTextNotesAuthorized` en `META`.
-- El cambio más reciente gana por su hora (`notesConsentAt` en META), no por orden de llegada: la cola
-  offline no preserva el orden y dos teléfonos pueden enviar cambios cruzados. Un cambio viejo deja su
-  registro de prueba pero no toca el permiso. La hora del dispositivo se recorta a la de recepción.
-- En empate de hora gana la revocación. Un teléfono con el reloj muy atrasado envía cambios más viejos
-  que la inscripción: quedan como prueba pero no cambian el permiso; la pantalla de privacidad muestra
-  el valor del servidor después de sincronizar, así que la familia lo ve. La clave del registro de
-  prueba usa la hora del dispositivo, así un reintento no duplica la prueba.
+- Una autorización solo abre las notas si es la más reciente por su hora (`notesConsentAt` en META), no
+  por orden de llegada: la cola offline no preserva el orden y dos teléfonos pueden enviar cambios
+  cruzados. Una autorización vieja deja su registro de prueba pero no toca el permiso. La hora del
+  dispositivo se recorta a la de recepción.
+- Una revocación se aplica siempre: en caso de duda, las notas quedan privadas. Si es más nueva (o
+  empata) mueve `notesConsentAt`; si es más vieja cierra las notas sin moverlo, así una autorización
+  más vieja que la última autorización sigue sin reabrirlas. Un teléfono con el reloj atrasado ya no
+  pierde una revocación; lo que todavía puede ignorarse es una autorización con el reloj atrasado, y la
+  pantalla de privacidad muestra el valor del servidor después de sincronizar, así que la familia lo
+  ve. La clave del registro de prueba usa la hora del dispositivo, así un reintento no duplica la
+  prueba.
 - Revocar oculta también las notas ya enviadas, sin código extra: el filtro es en lectura (regla 8).
 - El texto de la pantalla 6 es borrador, pendiente de revisión legal, como el del consentimiento.
 

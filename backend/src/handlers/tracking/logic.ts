@@ -86,8 +86,8 @@ export async function applySync(
         await store.putNotesConsent(context.familyId, {
           clientId,
           notesAuthorized,
-          // The newest change wins by this time (D-025), so a phone clock set in the future would win
-          // every later comparison: clamp it to when the server received it.
+          // A grant only applies when newer by this time (D-025), so a phone clock set in the future
+          // would win every later comparison: clamp it to when the server received it.
           at: new Date(Math.min(Date.parse(at), receivedAt.getTime())).toISOString(),
           // The proof is keyed by the device's own time, which a retry does not change.
           deviceAt: new Date(at).toISOString(),

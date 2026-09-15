@@ -984,26 +984,32 @@ La Lambda hace dos escrituras:
 2. **El cambio del permiso** (`freeTextNotesAuthorized`) en el registro de la familia, pero solo si
    corresponde (ver abajo).
 
-**Gana el cambio más reciente según su propia hora, no el último en llegar.** La cola offline no
-preserva el orden, y una familia con dos teléfonos puede enviar cambios cruzados: el padre revoca sin
-señal a las 9, la madre autoriza con señal a las 10, y a las 11 el teléfono del padre sincroniza. Si
-ganara el último en llegar, quedaría revocado contra lo que la familia decidió al final.
+**Una autorización solo se aplica si es la más reciente según su propia hora, no la última en llegar.**
+La cola offline no preserva el orden, y una familia con dos teléfonos puede enviar cambios cruzados: la
+madre autoriza sin señal a las 9, el padre revoca con señal a las 10, y a las 11 el teléfono de la madre
+sincroniza. Si ganara la última en llegar, las notas quedarían abiertas contra lo que la familia
+decidió al final.
 
-Por eso el registro de la familia guarda `notesConsentAt`, la hora del cambio vigente, y el permiso solo
-se mueve con un cambio más nuevo. Se inicializa con la hora de la inscripción, que es el primer cambio.
-Un cambio más viejo deja su registro de prueba, pero no toca el permiso.
+Por eso el registro de la familia guarda `notesConsentAt`, la hora del último cambio que movió el
+permiso ganando esa comparación, y una autorización solo abre las notas si es estrictamente más nueva.
+Se inicializa con la hora de la inscripción, que es el primer cambio. Una autorización más vieja deja su
+registro de prueba, pero no toca el permiso.
 
-**En empate, gana la revocación.** Una revocación se aplica si su hora es igual o posterior a la vigente;
-una autorización, solo si es estrictamente posterior. Ante la duda, el equipo deja de ver.
+**Una revocación se aplica siempre.** En caso de duda, las notas quedan privadas. Si su hora es igual o
+posterior a la vigente, cierra las notas y mueve `notesConsentAt`, como cualquier cambio más nuevo. Si
+es anterior, cierra las notas igual, pero sin mover `notesConsentAt`: así una autorización que llegue
+después y sea más vieja que la última autorización sigue sin poder reabrirlas.
 
 **La hora del dispositivo se recorta a la de recepción.** Un teléfono con el reloj adelantado ganaría
 todas las comparaciones siguientes. La hora efectiva nunca es posterior al momento en que el servidor
 recibió el cambio.
 
-**Un teléfono con el reloj muy atrasado** envía cambios con una hora anterior a la inscripción: quedan
-como prueba, pero no cambian el permiso. La familia no queda engañada, porque la pantalla de privacidad
-muestra el valor del servidor después de sincronizar: si el interruptor vuelve a su posición anterior,
-lo ve.
+**Un teléfono con el reloj atrasado ya no pierde una revocación.** Antes, quien revocaba justo después
+de activar, con el reloj unos minutos atrás, perdía la revocación y el teléfono le decía que se había
+guardado. Ahora la revocación se aplica igual. Lo que todavía puede ignorarse es una *autorización* con
+el reloj atrasado: queda como prueba, pero no abre las notas. La familia no queda engañada, porque la
+pantalla de privacidad muestra el valor del servidor después de sincronizar: si el interruptor vuelve a
+su posición anterior, lo ve.
 
 **Un reintento no duplica la prueba.** La clave del registro usa la hora del dispositivo, que un
 reintento no cambia, y no la de recepción, que sí. Reenviar la cola sobrescribe el mismo registro.
