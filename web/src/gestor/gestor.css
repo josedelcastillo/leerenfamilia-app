@@ -150,6 +150,8 @@
 .g-estado--en_pausa::before { background: var(--alert); }
 .g-estado--de_baja::before { background: var(--g-line-strong); }
 .g-tabla--auditoria td { height: auto; padding: 10px 16px; white-space: normal; }
+.g-col-cuando { width: 130px; }
+.g-col-accion { width: 96px; }
 .g-accion--alerta { color: var(--alert); }
 .g-intro { max-width: 70ch; font-size: 13px; line-height: 1.5; color: var(--g-ink-soft); }
 
