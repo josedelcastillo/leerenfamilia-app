@@ -427,28 +427,6 @@ textarea {
 
 .semana-abierta { padding: 10px 0 4px 12px; }
 
-/* --- heredado: se borra en la tarea 6.2 ----------------------------------- */
-.muted { color: var(--ink-soft); }
-.small { font-size: 0.85rem; }
-.topbar { background: var(--paper); padding: 0.7rem var(--gap) 0.6rem; margin: 0 calc(-1 * var(--gap)); border-bottom: 1px solid var(--line); }
-.topbar h1 { margin: 0; font-size: 1.15rem; color: var(--brand); }
-.marca { display: flex; align-items: baseline; gap: 0.3em; color: var(--brand); font-size: 1.2rem; font-weight: 700; }
-.marca__menor, .marca__pais { font-size: 0.62em; }
-.banner { display: flex; gap: 0.5rem; padding: 0.6rem 0.8rem; border-radius: var(--radius); margin: 0.75rem 0; font-size: 0.9rem; border: 1px solid var(--line-strong); background: var(--surface); }
-.banner--error { color: var(--alert); }
-.banner--offline { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
-.banner--pending { color: var(--accent); }
-.btn--secondary { min-height: var(--touch); background: var(--paper); color: var(--ink); border: 1.5px solid var(--line-strong); font-size: 17px; font-weight: 400; }
-.card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--gap); margin: 0.75rem 0; }
-.card--muted { background: var(--surface); }
-.entry { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
-.entry__head { display: flex; justify-content: space-between; gap: 0.5rem; align-items: baseline; }
-.tag { display: inline-block; font-size: 0.75rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 1rem; background: var(--accent-soft); color: var(--accent); }
-.tag--pending { background: var(--warn-soft); color: var(--warn); }
-.tag--ok { background: var(--paper); color: var(--ok); }
-.thread-reply { border-left: 3px solid var(--morado); background: var(--surface); padding: 0.5rem 0.75rem; margin: 0.75rem 0 0 0.5rem; }
-label { display: block; }
-
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
   .cerebro__rama line { stroke-dashoffset: 0; }
