@@ -52,7 +52,8 @@ node scripts/verificar-build.mjs    # antes de cualquier deploy
 # Desplegar: SIEMPRE con el template construido, nunca con el fuente
 sam deploy --template-file .aws-sam/build/template.yaml
 
-# Instalabilidad y funcionamiento offline, contra un build servido
+# Instalabilidad y funcionamiento offline, contra un build servido.
+# Necesita Playwright, que a propósito no es dependencia: ver runbook, "Instalabilidad y offline"
 cd web && npx vite preview --port 4173 &
 CHROMIUM_PATH=/ruta/a/chromium node web/scripts/check-installable.mjs http://localhost:4173/app
 
@@ -102,14 +103,15 @@ Si necesita romper alguna, dígalo explícitamente y agregue una entrada a `docs
    gestor si la familia lo autorizó en el consentimiento.
 9. **El bundle del gestor no llega al dispositivo de una familia.** `shared/` no puede importar de
    `app/` ni de `gestor/`.
-10. **El coral del logotipo (`--coral`) no toca ningún texto.** Mide 3.46:1 sobre blanco: ilegible al
-    sol en un celular barato. Para texto y controles va `--brand`, el mismo tono a 6.36:1 (D-022).
-    `npm test` lo verifica.
+10. **`--coral` y `--morado` son rellenos: no tocan ningún texto.** Para texto y controles van
+    `--brand`, `--brand-alt`, `--accent` y `--morado-text` (D-022, D-023). `npm test` lo verifica
+    midiendo contraste y buscando su uso como `color:`.
 11. **No invente contenido del programa.** Ni canciones, ni textos de libros, ni actividades: hay
     derechos de autor y lo define la ONG. Todo lo que hay es placeholder y está marcado como tal.
 12. **No agregue analítica de terceros.** Si hay que medir, endpoint propio contra DynamoDB.
 13. **Antes de agregar una dependencia, justifíquela en una línea** en el commit. Hoy el backend tiene
-    tres (SDK de AWS y esbuild) y la web cuatro.
+    tres (SDK de AWS y esbuild) y la web cuatro. Las fuentes (Literata y Atkinson Hyperlegible) son
+    archivos WOFF2 del repo, en `web/src/shared/fonts/`, no dependencias (D-023).
 
 ## Estado
 
@@ -118,7 +120,10 @@ sección del [runbook](docs/runbook.md); lo más importante:
 
 - **`sam deploy` nunca se ejecutó** — el entorno de desarrollo no tenía credenciales AWS
 - Contenido, íconos y texto de consentimiento son **placeholder**
-- El **endpoint de supresión de datos no existe**; hoy es manual, y es una obligación legal
+- El **endpoint de supresión de datos no existe**; hoy es manual, y es una obligación legal. La familia
+  ya puede pedirlo desde la PWA: el pedido llega a la bandeja y un gestor lo atiende a mano (D-027)
+- **Kits entregados y familias sensibilizadas no están en el modelo de datos.** Sus tarjetas del
+  tablero dicen que no hay dato (D-026)
 - No hay WABA: todo el flujo funciona y se demuestra con `WA_PROVIDER=mock`
 
 ## Cómo trabajar acá

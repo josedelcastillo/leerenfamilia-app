@@ -56,7 +56,8 @@ Tabla única, `PK`/`SK`, `PAY_PER_REQUEST`, un GSI.
 | Familia | `FAMILY#<fid>` | `META` | `PROGRAM#<pid>#STATUS#<estado>` | `<anchor_date>#<fid>` |
 | Cuidador | `FAMILY#<fid>` | `CAREGIVER#<msisdn>` | `MSISDN#<msisdn>` | `FAMILY#<fid>` |
 | Bebé | `FAMILY#<fid>` | `BABY` | — | — |
-| Consentimiento | `FAMILY#<fid>` | `CONSENT#<iso_ts>` | — | — |
+| Consentimiento (inscripción) | `FAMILY#<fid>` | `CONSENT#<iso_ts>` | — | — |
+| Cambio de consentimiento (PWA) | `FAMILY#<fid>` | `CONSENT#<iso_ts_dispositivo>#<clientId>` | — | — |
 | Acceso a recurso | `FAMILY#<fid>` | `ACCESS#<iso_ts>#<rid>` | — | — |
 | Bitácora | `FAMILY#<fid>` | `LOG#<iso_ts>` | — | — |
 | Feedback | `FAMILY#<fid>` | `FEEDBACK#<iso_ts>` | `PROGRAM#<pid>#FEEDBACK#<estado>` | `<iso_ts>#<fid>` |
@@ -266,6 +267,10 @@ El endpoint `/api/seguimiento` acepta un lote por `POST` y **responde por ítem*
 saque de la cola exactamente lo que entró. Un registro malformado no puede dejar varada una semana de
 bitácora. Por `GET` devuelve el historial propio de la familia.
 
+Los tipos de ítem son tres: `bitacora` (una entrada), `acceso` (un recurso abierto) y `consentimiento`
+(el interruptor de notas de la pantalla "Tus datos", D-025). El feedback va por `/api/feedback`, con la
+misma cola.
+
 El historial que ve la familia mezcla lo del servidor con lo que sigue en la cola, unido por `clientId`
 (D-015): una entrada escrita sin señal se ve de inmediato marcada como pendiente, pasa a guardada sola
 cuando sincroniza, y nunca aparece duplicada.
@@ -288,6 +293,10 @@ pero el gestor solo lo ve si la familia lo autorizó en el consentimiento — `f
 registro de la familia, marcado en el formulario de inscripción y filtrado en lectura, nunca descartado en
 escritura.
 
+La familia puede cambiarlo después desde la PWA, con un ítem `consentimiento` en la cola. Cada cambio
+deja un registro de prueba `CONSENT#...#<clientId>`, y el permiso solo se mueve con un cambio más nuevo
+que el vigente (`notesConsentAt`), porque la cola no preserva el orden. Ver D-025.
+
 ### Instalabilidad y offline
 
 Verificados con Chromium real, no con un puntaje. Ver `decisiones.md` D-009: Lighthouse eliminó su categoría
@@ -307,6 +316,8 @@ es válido, no que esa persona deba ver datos de familias. Ver `decisiones.md` D
 | `GET /bandeja?estado=` | Bandeja unificada PWA + WhatsApp, más antiguos primero |
 | `POST /respuesta` | Responde y notifica por WhatsApp — **escribe auditoría** |
 | `POST /cerrar` | Cierra un feedback |
+| `GET /tablero` | Tablero del piloto y reporte semanal: solo agregados, sin texto libre (D-026) |
+| `GET /auditoria` | Accesos de los dos últimos meses UTC; el registro completo sigue en `auditoria.csv` (D-026) |
 
 El listado se ordena por atención pendiente: primero las familias con mensajes sin responder, después las que
 menos actividad registraron. Es la pregunta que un gestor hace cada mañana.
@@ -364,8 +375,8 @@ solo el bundle, sin `node_modules`.
 |---|---|
 | `sam validate --lint` | Pasa |
 | `sam build` | Pasa; 7 artefactos ESM, 108 KB en total |
-| `npm test` (backend, sin red ni credenciales) | 376 tests, todos pasan |
-| `npm test` (web) | 45 tests, todos pasan |
+| `npm test` (backend, sin red ni credenciales) | 440 tests, todos pasan |
+| `npm test` (web) | 84 tests, todos pasan, más `check-contrast` |
 | `check-installable.mjs` (Chromium real) | instalabilidad y funcionamiento offline, todo verde |
 | `tsc --noEmit` (backend y web) | Pasa |
 | `npm run build` (web) | Pasa; chunks de familia y gestor separados |

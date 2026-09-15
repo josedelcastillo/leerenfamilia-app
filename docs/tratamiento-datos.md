@@ -29,16 +29,18 @@ decidió, para que se pueda corregir.
 |---|---|---|---|
 | Número de celular (E.164) | Cuidador | Único canal del acompañamiento | `FAMILY#<id> / CAREGIVER#<msisdn>` |
 | Rol (principal / secundario) | Cuidador | Distinguir quién registra en la bitácora | Ídem |
+| Relación declarada (mamá / papá / otra) | Cuidador | Preseleccionar quién hizo la actividad. **Opcional y autodeclarada** | Ídem |
 | Nombre o alias del bebé | **Menor** | Personalizar los mensajes | `FAMILY#<id> / BABY` |
 | Fecha de nacimiento | **Menor** | Edad del bebé; segmentación del análisis | Ídem |
 | Clínica de origen | Familia | Análisis del piloto | `FAMILY#<id> / META` |
 | Fecha de ingreso al programa | Familia | Ancla del cronograma (D-003) | Ídem |
-| Bitácora: fecha, tipo, minutos, quién | Familia | **Indicador primario del piloto** | `FAMILY#<id> / LOG#...` |
+| Bitácora: fecha, tipo, minutos (opcionales), qué teléfono | Familia | **Indicador primario del piloto** | `FAMILY#<id> / LOG#...` |
+| Bitácora: quién hizo la actividad según la familia (`declaredBy`) | Familia | Indicador L4. **Opcional y autodeclarado**; distinto del teléfono, que sale del token (D-024) | Ídem |
 | Bitácora: nota de texto libre | Familia | Contexto cualitativo | Ídem — **ver abajo** |
 | Feedback y mensajes entrantes | Familia | Canal bidireccional | `FAMILY#<id> / FEEDBACK#...` |
 | Accesos a recursos | Familia | Medir uso del contenido | `FAMILY#<id> / ACCESS#...` |
 | Estado de envíos y `pricing` | — | Alcance y conciliación de factura | `WAMID#<wamid>` |
-| Consentimiento: versión, canal, fecha | Cuidador | Prueba del consentimiento | `FAMILY#<id> / CONSENT#...` |
+| Consentimiento: versión, canal, fecha; cada cambio posterior del permiso de notas | Cuidador | Prueba del consentimiento | `FAMILY#<id> / CONSENT#...` |
 | `sub` y correo del gestor, acción, familia, fecha | Personal | Registro de accesos | `AUDIT#<yyyy-mm>` |
 
 ### Lo que deliberadamente NO se guarda
@@ -71,6 +73,9 @@ Por eso lleva un consentimiento **separado** del consentimiento general:
   si más adelante autoriza, su historia sigue completa.
 - La interfaz del gestor dice explícitamente cuándo está viendo una familia que no autorizó.
 - En el CSV exportado, una columna `nota_autorizada` distingue "no escribió nada" de "no autorizó".
+- **La familia puede cambiar de opinión cuando quiera**, desde la pantalla "Tus datos" de la app, con o
+  sin señal (D-025). Revocar es **retroactivo para el equipo**: deja de ver también las notas que ya
+  había enviado, porque el filtro es en lectura. Las notas siguen guardadas para la familia.
 
 ## Base legal
 
@@ -80,6 +85,15 @@ por QR.
 Se registra: la versión exacta del texto aceptado, el canal (`qr`), la fecha y hora, y si autorizó
 además la lectura de las notas. Sin `accepted: true` el registro se rechaza y **no se escribe nada**:
 el consentimiento es una precondición, no un campo del formulario.
+
+**Los cambios posteriores del permiso de notas también dejan prueba.** Cada vez que la familia lo
+activa o lo desactiva desde la app, se guarda un registro aparte con el canal (`pwa`), la versión del
+texto, qué cuidador lo cambió, el valor nuevo y la hora. El registro de la inscripción no se toca: la
+historia completa del consentimiento queda en la partición de la familia.
+
+Si dos cambios se cruzan —por ejemplo, dos teléfonos de la misma casa sin señal—, vale el más reciente
+según la hora en que se hizo, no el que llegó último, y en empate vale la revocación. Un cambio que
+llega tarde y ya fue superado queda como prueba pero no mueve el permiso (D-025).
 
 ### Puntos para el abogado
 
@@ -118,7 +132,7 @@ que decidirlo y escribirlo en el consentimiento**, no dejarlo implícito.
 | **Baja** (dejar de recibir mensajes) | ✅ Implementado. `BAJA`, `STOP` o `SALIR` por WhatsApp; el sistema confirma. Una frase que contenga la palabra la atiende un gestor (D-006) |
 | **Acceso** | ⚠ Parcial. La familia ve su contenido y sus mensajes en la app, no un volcado completo de sus datos |
 | **Rectificación** | ❌ No implementado |
-| **Supresión** | ⚠ **Manual.** El modelo de datos lo soporta —todo lo de una familia está en una partición— pero **no hay endpoint** |
+| **Supresión** | ⚠ **Manual.** El modelo de datos lo soporta —todo lo de una familia está en una partición— pero **no hay endpoint**. La familia puede pedirla desde la app; el pedido llega a la bandeja del gestor (D-027) |
 | **Oposición** | Equivale a la baja |
 
 ### El flujo de supresión
@@ -134,8 +148,14 @@ Lo que **no** se borra, y hay que justificar ante el abogado:
   desvincular borrando el ítem que enlaza el `wamid` con la familia, y conservar el resto sin
   identificador.
 
-**Que la supresión sea manual es una obligación legal incumplida, no una funcionalidad pendiente.** Está
-en la lista de bloqueantes del runbook.
+**Mientras tanto, la familia tiene dónde pedirla (D-027).** La pantalla "Tus datos" tiene un botón
+"Pedir que borren mis datos" que, tras una confirmación en dos pasos, envía a la bandeja del gestor un
+pedido con un texto fijo. Un gestor le escribe a la familia para confirmar y hace la supresión a mano
+con el procedimiento del runbook. Esto no borra nada por sí solo: solo evita que la familia no sepa a
+quién pedírselo.
+
+**Que la supresión sea manual es una obligación legal incumplida, no una funcionalidad pendiente.** La
+solución transitoria no la cumple. Está en la lista de bloqueantes del runbook.
 
 ## Seguridad
 

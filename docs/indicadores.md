@@ -63,11 +63,21 @@ al ingreso son casi todas al principio del piloto.
 | Id | Indicador | Cálculo |
 |---|---|---|
 | L1 | Días con lectura | Días distintos con ≥1 entrada de tipo `lectura`, por familia |
-| L2 | Minutos por tipo | Suma de minutos, desagregada en lectura / canción / juego / conversación |
+| L2 | Minutos por tipo | Suma de minutos **reportados**, desagregada en lectura / canción / juego / conversación. Las entradas en un toque no reportan duración; ver `entradas_con_minutos` (D-024) |
 | L3 | Reparto entre cuidadores | Entradas del cuidador principal vs. secundario |
+| L4 | Quién hizo la actividad, según la familia | Conteo de entradas por `declarado_por`: `mama` / `papa` / `otra` / `sin_dato`. En `resumen.csv` son las filas `declarado_mama` … `declarado_sin_dato`; en `bitacora.csv`, `sin_dato` es la celda vacía |
 
 L3 es de los pocos datos que el piloto puede aportar sobre la dinámica del hogar, y es la razón por la
 que el token identifica al cuidador y no solo a la familia.
+
+**L3 y L4 responden preguntas distintas.** L3 dice **desde qué teléfono** se registró, y lo decide el
+servidor con el token. L4 dice **quién hizo la actividad**, según lo que la familia marcó, y es
+opcional (D-024). Una abuela que lee con el celular de la madre cuenta como principal en L3 y como
+`otra` en L4. El primer toque no guarda quién fue, así que `sin_dato` va a ser alto: no quiere decir
+que nadie leyó, sino que nadie lo dijo.
+
+**L2 no se puede comparar con un piloto de formulario.** Solo suma lo reportado, y con registro en un
+toque la mayoría de las entradas no reporta minutos. Léalo siempre al lado de `entradas_con_minutos`.
 
 ### Alcance del canal
 
@@ -90,6 +100,29 @@ que el token identifica al cuidador y no solo a la familia.
 **B3 y B4 existen para hacer visible un vacío.** El modelo operativo no define ningún plazo de
 respuesta (hallazgo 11), y a este canal van a llegar consultas de madres con recién nacidos. Medir el
 tiempo no reemplaza acordar un compromiso, pero al menos deja de ser invisible.
+
+## Tablero del gestor
+
+El tablero y el reporte semanal (D-026) muestran solo lo que la plataforma sabe, con las mismas
+definiciones de arriba cuando existen. Así el tablero y `resumen.csv` no pueden decir cosas distintas.
+
+| Tarjeta | Qué muestra | De dónde sale |
+|---|---|---|
+| Sensibilizadas | **Sin dato.** La tarjeta dice qué falta | No está en el modelo: la registra el hospital |
+| Registradas en la PWA | Familias inscritas, incluidas las de baja | C1 |
+| Activas esta semana | Familias con ≥1 entrada en los últimos 7 días | Ventana móvil de 7 días hasta hoy, no la semana del programa de A1 |
+| Kits entregados | **Sin dato.** La tarjeta dice qué falta | No está en el modelo (limitación 6) |
+| Participación por semana | Por semana del programa: familias que llegaron y familias con ≥1 entrada | C4, calculado con `cohortIndicators` como en `resumen.csv` |
+| Requiere acción: comentarios sin responder | Feedback en estado `abierto` | B5, a la fecha de hoy |
+| Requiere acción: familias sin registros en 7 días | Familias **activas**, con al menos 7 días en el programa, sin ninguna entrada en los últimos 7 días | Propia del tablero. Excluye a las de baja: ya no son trabajo del equipo |
+| Consentimiento de notas | Familias que autorizan que el equipo lea sus notas, sobre todas las registradas | Estado vigente del permiso (D-025); las de baja cuentan en el denominador |
+
+El reporte semanal agrega dos cifras que no están en el tablero:
+
+| Cifra del reporte | De dónde sale |
+|---|---|
+| Registros en 7 días | Entradas de los últimos 7 días, de todas las familias |
+| Hogares con los dos cuidadores | Familias con al menos una entrada del principal y una del secundario. Viene del token, como L3, no de `declarado_por` |
 
 ## Limitaciones que hay que declarar en el informe
 

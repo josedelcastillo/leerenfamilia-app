@@ -133,6 +133,33 @@ aws lambda invoke --function-name <stack>-WeeklySendFunction-XXXX /dev/stdout | 
 El envío semanal en modo mock no manda nada a Meta: escribe el payload a CloudWatch y a la tabla.
 Búsquelo con `aws logs tail /nplp/$STACK/fn-weekly-send --follow`.
 
+### Instalabilidad y offline
+
+`web/scripts/check-installable.mjs` abre la PWA en un Chromium real y comprueba que se puede instalar y
+que funciona sin red. Usa **Playwright**, que a propósito **no es una dependencia declarada**: se usa
+solo para esta verificación, y cada dependencia del repo tiene que justificarse (regla 13 de
+`CLAUDE.md`).
+
+Se instala una vez en una carpeta temporal, fuera del repo, y el script se copia al lado: un `import`
+de Node busca el paquete desde la carpeta del script, así que **ni `npx -p playwright` ni `NODE_PATH`
+funcionan**. `CHROMIUM_PATH` apunta a un Chrome o Chromium ya instalado, para no descargar otro.
+
+```bash
+# Una vez: Playwright en una carpeta temporal, con el script al lado
+PW=$(mktemp -d) && (cd "$PW" && npm i --no-save playwright)
+cp web/scripts/check-installable.mjs "$PW"/
+
+# Contra un build servido
+(cd web && npm run build && npx vite preview --port 4173) &
+CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  node "$PW"/check-installable.mjs http://localhost:4173/app
+```
+
+En Linux, `CHROMIUM_PATH` suele ser `/usr/bin/chromium` o `/usr/bin/google-chrome`. Sin
+`CHROMIUM_PATH`, Playwright usa su propio navegador, que hay que bajar antes con
+`(cd "$PW" && npx playwright install chromium)`. Debe terminar con "Todas las comprobaciones de
+instalabilidad pasaron."
+
 ## Conectar WhatsApp de verdad
 
 Cuando exista la WABA:
@@ -183,6 +210,7 @@ Meta y decidiendo a mano.
 | El CSV abre con acentos rotos | Se perdió el BOM (D-014) |
 | La app no carga sin conexión | El service worker no se registró. Verificar con `web/scripts/check-installable.mjs` |
 | La familia no ve su historial de bitácora | Falta la ruta `GET /api/seguimiento`. Requiere `sam deploy`, no solo publicar la PWA |
+| El tablero o la auditoría del gestor quedan en blanco, y la red muestra 404 en `/api/gestor/tablero` o `/api/gestor/auditoria` | La PWA nueva está publicada sobre un stack sin el deploy del re-vestido. `sam build` y `sam deploy` con el template construido, no solo publicar la PWA |
 | Un cambio de la PWA no aparece | Falta invalidar CloudFront para `/index.html` y `/sw.js` |
 
 Todos los log groups están bajo `/nplp/<stack>/fn-*` con retención de 14 días.
@@ -249,6 +277,68 @@ un `Query` y un `BatchWrite` sobre `FAMILY#<id>`.
 `tratamiento-datos.md`. El endpoint automatizado **no está construido todavía** — hoy se hace a mano y
 eso hay que resolverlo antes del arranque, porque es una obligación legal, no una funcionalidad.
 
+### Cuando el pedido llega por la bandeja
+
+La familia puede pedir la supresión desde la pantalla "Tus datos" de la app (D-027). En la bandeja
+aparece como un mensaje de tipo **Pedido**, siempre con este texto:
+
+> Pido que borren mis datos y los de mi bebé del programa Nacidos para Leer.
+
+La app ya le dijo a la familia "El equipo te escribirá para confirmarlo". El pedido se puede deshacer; el
+borrado no.
+
+1. **Confirme con la familia antes de borrar.** Respóndale desde la bandeja —le llega por WhatsApp y en
+   la app— que recibió el pedido, y pregúntele si lo confirma. Responder primero importa: el mensaje
+   vive en la partición de la familia y se borra con ella.
+2. **Anote el código de la familia** (`F-XXXXXX`) que muestra su ficha, y búsquela en la tabla. El
+   código son los seis primeros caracteres del id; en la tabla van en minúsculas. Tiene que salir
+   **exactamente un** resultado.
+
+   ```bash
+   TABLE=<output TableName del stack>
+   H=3a9c1e   # el código de la ficha, sin "F-" y en minúsculas
+   aws dynamodb scan --table-name $TABLE \
+     --filter-expression 'begins_with(PK, :p) AND SK = :m' \
+     --expression-attribute-values "{\":p\":{\"S\":\"FAMILY#$H\"},\":m\":{\"S\":\"META\"}}" \
+     --query 'Items[].PK.S' --output text
+   ```
+
+3. **Borre la partición completa**: metadatos, bebé, cuidadores, consentimientos, bitácora, feedback,
+   accesos y envíos. Con el número del cuidador se va también su entrada en el índice.
+
+   ```bash
+   FID=<id completo, lo que sigue a FAMILY# en el paso 2>
+   aws dynamodb query --table-name $TABLE --key-condition-expression 'PK = :pk' \
+     --expression-attribute-values "{\":pk\":{\"S\":\"FAMILY#$FID\"}}" \
+     --projection-expression 'PK, SK' --output json \
+     | jq -c '.Items[]' | while read -r key; do
+         aws dynamodb delete-item --table-name $TABLE --key "$key"
+       done
+   ```
+
+4. **Desvincule los envíos de WhatsApp.** Los ítems `WAMID#` que llevan el id de la familia la enlazan
+   con cada mensaje enviado. Se borran esos; el resto de cada `WAMID#`, con el `pricing` para conciliar
+   la factura, se queda sin identificador (`tratamiento-datos.md`).
+
+   ```bash
+   aws dynamodb scan --table-name $TABLE \
+     --filter-expression 'begins_with(PK, :w) AND familyId = :f' \
+     --expression-attribute-values "{\":w\":{\"S\":\"WAMID#\"},\":f\":{\"S\":\"$FID\"}}" \
+     --projection-expression 'PK, SK' --output json \
+     | jq -c '.Items[]' | while read -r key; do
+         aws dynamodb delete-item --table-name $TABLE --key "$key"
+       done
+   ```
+
+5. **Verifique** repitiendo el `query` del paso 3: no debe devolver nada.
+
+El registro de accesos (`AUDIT#`) **no** se borra: es la prueba de quién vio qué, y vence solo a los 12
+meses. Qué hacer con los CSV que ya se exportaron con datos de esa familia es una pregunta abierta para
+el abogado.
+
+> Estos comandos no se probaron contra AWS: `sam deploy` nunca se ejecutó. Pruébelos primero con una
+> familia `demo-`.
+
 ## Apagar el piloto
 
 ```bash
@@ -275,7 +365,7 @@ No es una lista de mejoras. Es lo que impide operar de verdad:
 | Pendiente | Fase / decisión |
 |---|---|
 | Contenido real de las 8 semanas | Leer en Familia. Hoy todo es placeholder |
-| Logo real **en vector** | Leer en Familia. La paleta de la marca ya está aplicada (D-022), pero los íconos de la PWA siguen siendo el libro genérico de relleno sobre el coral correcto. Un PNG no escala a los tamaños de un launcher: hace falta SVG |
+| Logo real **en vector** | Leer en Familia. La identidad ya está aplicada (D-022, D-023), pero los íconos de la PWA salen del lockup PNG y a 32px no se leen. Un PNG no escala a los tamaños de un launcher: hace falta SVG |
 | Texto de consentimiento revisado por un abogado | `tratamiento-datos.md` |
 | Endpoint de supresión automatizado | Obligación legal, hoy manual |
 | WABA y plantillas aprobadas | Meta |
