@@ -1,88 +1,232 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import '../shared/styles.css';
+import { api, type Activity, type ActivityKind, type DeclaredBy } from '../shared/api.ts';
 import { captureTokenFromUrl } from '../shared/token.ts';
 import { useSync } from '../shared/useSync.ts';
-import { Estado } from './components/Estado.tsx';
-import { Bitacora } from './Bitacora.tsx';
-import { Contenido } from './Contenido.tsx';
+import { Actividad } from './Actividad.tsx';
+import { Anteriores } from './Anteriores.tsx';
+import { Cola } from './Cola.tsx';
+import { Conexion } from './components/Conexion.tsx';
+import { visibleQueue } from './cola.ts';
+import { todayLocal } from './formato.ts';
+import { Inicio } from './Inicio.tsx';
 import { Mensajes } from './Mensajes.tsx';
+import { Privacidad } from './Privacidad.tsx';
+import { Progreso } from './Progreso.tsx';
 import { Registro } from './Registro.tsx';
+import { RegistroRapido } from './RegistroRapido.tsx';
+import { firstTapPayload } from './registro-rapido.ts';
+import { useContenido } from './useContenido.ts';
 
 type Tab = 'semana' | 'bitacora' | 'mensajes';
 
-const TABS: ReadonlyArray<{ id: Tab; label: string; icon: string }> = [
-  { id: 'semana', label: 'Esta semana', icon: '📖' },
-  { id: 'bitacora', label: 'Bitácora', icon: '✏️' },
-  { id: 'mensajes', label: 'Mensajes', icon: '💬' },
+// One level of tabs, in the lower third, no emoji (D-023: the only place the design revises itself).
+const TABS: ReadonlyArray<{ id: Tab; label: string }> = [
+  { id: 'semana', label: 'Esta semana' },
+  { id: 'bitacora', label: 'Bitácora' },
+  { id: 'mensajes', label: 'Mensajes' },
 ];
 
+type Vista =
+  | { readonly tipo: 'tabs' }
+  | { readonly tipo: 'actividad'; readonly week: number; readonly activityId: string }
+  | {
+      readonly tipo: 'registro';
+      readonly kind: ActivityKind;
+      readonly resourceId: string | null;
+      readonly week: number | null;
+      readonly initial: Record<string, unknown> | null;
+    }
+  | { readonly tipo: 'anteriores' }
+  | { readonly tipo: 'cola' }
+  | { readonly tipo: 'privacidad' };
+
+/** `?v=registrar` opens the logging screen directly, for when the WhatsApp template links to it. */
+function initialVista(): Vista {
+  return new URLSearchParams(window.location.search).get('v') === 'registrar'
+    ? { tipo: 'registro', kind: 'lectura', resourceId: null, week: null, initial: null }
+    : { tipo: 'tabs' };
+}
+
 export default function FamilyApp() {
+  // Read before the token capture below rewrites the URL.
+  const [vista, setVista] = useState<Vista>(initialVista);
   // Runs once on load: pulls the token out of the WhatsApp deep link and clears it from the URL.
   const [token, setTokenState] = useState<string | null>(() => captureTokenFromUrl());
   const [tab, setTab] = useState<Tab>('semana');
+  const [relation, setRelation] = useState<DeclaredBy | null>(null);
   const sync = useSync();
+  const contenido = useContenido();
+
+  useEffect(() => {
+    if (token === null) return;
+    api.listLog().then((response) => setRelation(response.relation)).catch(() => undefined);
+  }, [token]);
+
+  const pendingIds = useMemo(() => new Set(sync.pendingItems.map((item) => item.clientId)), [sync.pendingItems]);
+
+  // `sync.enqueue` is a stable useCallback, so this is too — Inicio's access effect depends on it.
+  const enqueue = sync.enqueue;
+  /**
+   * Showing a week records that the family looked at it (D-016). The client id is fixed per week
+   * and day, so re-opening the same week ten times in an afternoon is one record, not ten.
+   */
+  const recordAccess = useCallback(
+    (week: number) => {
+      const day = todayLocal();
+      void enqueue('acceso', {
+        clientId: `acceso-${week}-${day}`,
+        resourceId: `semana-${String(week).padStart(2, '0')}`,
+        week,
+        at: `${day}T00:00:00.000Z`,
+      });
+    },
+    [enqueue],
+  );
+
+  const content = contenido.status === 'listo' ? contenido.content : null;
+  const actividadWeek = vista.tipo === 'actividad' ? content?.weeks.find((w) => w.week === vista.week) : undefined;
+  const actividad =
+    vista.tipo === 'actividad' ? actividadWeek?.activities.find((a) => a.id === vista.activityId) : undefined;
+  // A view that points at content that is not there (it changed underneath an open screen) goes
+  // back to the tabs. Done in an effect, not during render.
+  const unresolvable =
+    (vista.tipo === 'actividad' && actividad === undefined) || (vista.tipo === 'anteriores' && content === null);
+
+  useEffect(() => {
+    if (unresolvable) setVista({ tipo: 'tabs' });
+  }, [unresolvable]);
 
   if (token === null) {
     return (
-      <main className="app">
-        <Registro onRegistered={() => setTokenState(captureTokenFromUrl())} />
-      </main>
+      <div className="familia">
+        <div className="halo" aria-hidden="true" />
+        <main className="app app--sin-tabs">
+          <Registro onRegistered={() => setTokenState(captureTokenFromUrl())} />
+        </main>
+      </div>
     );
   }
 
-  return (
-    <>
-      <header className="topbar">
-        {/* The wordmark's own arrangement: the two big words, "para" small between them. */}
-        <h1 className="marca">
-          Nacidos <span className="marca__menor">para</span> Leer{' '}
-          <span className="marca__pais">PERÚ</span>
-        </h1>
-        <p className="muted small" style={{ margin: 0 }}>
-          Leer en Familia
-        </p>
-      </header>
+  const back = () => setVista({ tipo: 'tabs' });
+  const openActivity = (week: number, activity: Activity) =>
+    setVista({ tipo: 'actividad', week, activityId: activity.id });
+  const register = (week: number | null) =>
+    setVista({ tipo: 'registro', kind: 'lectura', resourceId: null, week, initial: null });
 
-      <main className="app">
-        <Estado
-          online={sync.online}
-          pending={sync.pending}
-          rejected={sync.rejected}
-          onDismiss={sync.dismissRejected}
+  async function doneActivity(week: number, activity: Activity) {
+    const payload = firstTapPayload({
+      clientId: crypto.randomUUID(),
+      date: todayLocal(),
+      kind: activity.kind,
+      resourceId: activity.id,
+    });
+    await sync.enqueue('bitacora', payload);
+    setVista({ tipo: 'registro', kind: activity.kind, resourceId: activity.id, week, initial: payload });
+  }
+
+  let screen: ReactNode = null;
+  switch (vista.tipo) {
+    case 'actividad':
+      if (actividadWeek !== undefined && actividad !== undefined) {
+        const week = actividadWeek;
+        const activity = actividad;
+        screen = (
+          <Actividad
+            week={week}
+            activity={activity}
+            onBack={back}
+            onOpen={(next) => openActivity(week.week, next)}
+            onDone={() => void doneActivity(week.week, activity)}
+          />
+        );
+      }
+      break;
+    case 'registro':
+      screen = (
+        // A new key per navigation: a one-tap entry and a fresh "Registrar" never share state.
+        <RegistroRapido
+          key={vista.initial === null ? 'nuevo' : String(vista.initial['clientId'])}
+          kind={vista.kind}
+          resourceId={vista.resourceId}
+          week={vista.week}
+          relation={relation}
+          initial={vista.initial}
+          pendingIds={pendingIds}
+          enqueue={sync.enqueue}
+          discard={sync.discard}
+          onDone={back}
         />
+      );
+      break;
+    case 'anteriores':
+      if (content !== null) {
+        screen = (
+          <Anteriores content={content} onBack={back} onOpenActivity={openActivity} recordAccess={recordAccess} />
+        );
+      }
+      break;
+    case 'cola':
+      screen = <Cola online={sync.online} items={sync.pendingItems} onBack={back} />;
+      break;
+    case 'privacidad':
+      screen = <Privacidad pendingItems={sync.pendingItems} enqueue={sync.enqueue} onBack={back} />;
+      break;
+    case 'tabs':
+      screen =
+        tab === 'semana' ? (
+          <Inicio
+            state={contenido}
+            onOpenActivity={openActivity}
+            onRegister={register}
+            onOpenAnteriores={() => setVista({ tipo: 'anteriores' })}
+            recordAccess={recordAccess}
+          />
+        ) : tab === 'bitacora' ? (
+          <Progreso
+            pendingItems={sync.pendingItems}
+            syncedAt={sync.syncedAt}
+            currentWeek={content === null ? 1 : Math.min(content.currentWeek, content.programWeeks)}
+            onRegister={() => register(null)}
+            onOpenPrivacidad={() => setVista({ tipo: 'privacidad' })}
+          />
+        ) : (
+          <Mensajes enqueue={sync.enqueue} pendingItems={sync.pendingItems} syncedAt={sync.syncedAt} />
+        );
+      break;
+  }
 
-        {tab === 'semana' && <Contenido enqueue={sync.enqueue} />}
-        {tab === 'bitacora' && (
-          <Bitacora
-            enqueue={sync.enqueue}
-            pendingItems={sync.pendingItems}
-            syncedAt={sync.syncedAt}
-          />
-        )}
-        {tab === 'mensajes' && (
-          <Mensajes
-            enqueue={sync.enqueue}
-            pendingItems={sync.pendingItems}
-            syncedAt={sync.syncedAt}
-          />
-        )}
+  const withTabs = vista.tipo === 'tabs';
+  // Screens 6, 7 and 8 have no wash in the design.
+  const withHalo = !(vista.tipo === 'cola' || vista.tipo === 'privacidad' || (withTabs && tab === 'mensajes'));
+
+  return (
+    <div className="familia">
+      {withHalo && <div className="halo" aria-hidden="true" />}
+      <main className={withTabs ? 'app' : 'app app--sin-tabs'}>
+        <Conexion
+          online={sync.online}
+          pending={visibleQueue(sync.pendingItems).length}
+          rejected={sync.rejected.length}
+          onDismiss={sync.dismissRejected}
+          onOpenCola={() => setVista({ tipo: 'cola' })}
+        />
+        {screen}
       </main>
-
-      <nav className="tabs" aria-label="Secciones">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            aria-current={tab === item.id ? 'page' : undefined}
-            onClick={() => setTab(item.id)}
-          >
-            <span aria-hidden="true" style={{ display: 'block', fontSize: '1.3rem' }}>
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        ))}
-      </nav>
-    </>
+      {withTabs && (
+        <nav className="tabs" aria-label="Secciones">
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              aria-current={tab === item.id ? 'page' : undefined}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
+      )}
+    </div>
   );
 }
