@@ -10,15 +10,17 @@ const TYPES = [
   { value: 'problema', label: 'Algo no funciona' },
 ] as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  abierto: 'Esperando respuesta',
-  respondido: 'Respondido',
-  cerrado: 'Cerrado',
-};
-
 const TYPE_LABEL: Record<string, string> = {
   consulta: 'Duda', comentario: 'Comentario', pedido: 'Pedido', problema: 'Problema',
 };
+
+/** Status in the family's words. "Waiting" is not an alarm here: nothing on these screens reads as a deficit. */
+function statusLabel(item: { pending: boolean; status: string }): { text: string; ok: boolean } {
+  if (item.pending) return { text: 'Por enviar', ok: false };
+  if (item.status === 'respondido') return { text: 'Respondido', ok: true };
+  if (item.status === 'cerrado') return { text: 'Cerrado', ok: false };
+  return { text: 'Esperando respuesta', ok: false };
+}
 
 export function Mensajes({
   enqueue,
@@ -42,12 +44,10 @@ export function Mensajes({
         setStored(response.feedback);
         setLoadFailed(false);
       })
-      // Offline this fails; the queued messages carry the thread on their own.
       .catch(() => setLoadFailed(true));
   }, []);
 
   useEffect(load, [load]);
-  // Reload once a flush has landed, so a message stops showing as pending and any reply appears.
   useEffect(() => {
     if (syncedAt > 0) load();
   }, [syncedAt, load]);
@@ -72,81 +72,56 @@ export function Mensajes({
   }
 
   return (
-    <section>
-      <h1>Mensajes</h1>
-      <p className="muted small">
-        Escríbenos lo que quieras: dudas, comentarios o pedidos. Te respondemos por aquí y por
-        WhatsApp.
-      </p>
+    <form className="pantalla" onSubmit={submit}>
+      <div className="pantalla__cuerpo">
+        <h1 className="titular titular--actividad">Escríbenos</h1>
+        <p className="lectura lectura--suave">Te respondemos por aquí y por WhatsApp.</p>
 
-      <form onSubmit={submit} className="card">
-        <label id="tipo-msg">¿De qué se trata?</label>
-        <div className="chips" role="group" aria-labelledby="tipo-msg">
+        <div className="chips" role="group" aria-label="¿De qué se trata?">
           {TYPES.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className="chip"
-              aria-pressed={type === option.value}
-              onClick={() => setType(option.value)}
-            >
+            <button key={option.value} type="button" className="chip" aria-pressed={type === option.value}
+                    onClick={() => setType(option.value)}>
               {option.label}
             </button>
           ))}
         </div>
 
-        <label htmlFor="texto">Tu mensaje</label>
-        <textarea
-          id="texto"
-          value={text}
-          maxLength={2000}
-          required
-          onChange={(event) => setText(event.target.value)}
-        />
+        <label className="visually-hidden" htmlFor="texto">Tu mensaje</label>
+        <textarea id="texto" className="campo-mensaje" value={text} maxLength={2000} required
+                  placeholder="Cuéntanos con tus palabras" onChange={(event) => setText(event.target.value)} />
 
-        <button type="submit" className="btn" disabled={busy || text.trim() === ''}>
-          Enviar
-        </button>
-      </form>
+        <hr className="filete" />
 
-      <h2>Tus mensajes</h2>
-      {loadFailed && (
-        <p className="banner banner--offline small">
-          No pudimos cargar tus mensajes anteriores. Abajo ves los que están guardados en este celular.
-        </p>
-      )}
+        {loadFailed && <p className="meta meta--chica">Ves los mensajes guardados en este teléfono.</p>}
+        {thread.length === 0 ? (
+          <p className="meta">Todavía no nos escribiste. Lo que mandes aparece aquí con su respuesta.</p>
+        ) : (
+          <ul className="hilo">
+            {thread.map((item) => {
+              const status = statusLabel(item);
+              return (
+                <li key={item.id} className="mensaje">
+                  <div className="mensaje__cabecera">
+                    <span className="tipo">{TYPE_LABEL[item.type] ?? item.type}</span>
+                    <span className={status.ok ? 'mensaje__estado mensaje__estado--ok' : 'mensaje__estado'}>{status.text}</span>
+                  </div>
+                  <p className="mensaje__texto">“{item.text}”</p>
+                  {item.replies.map((reply, index) => (
+                    <div key={`${item.id}-${index}`} className="respuesta">
+                      <span className="respuesta__autor">Leer en Familia</span>
+                      <span className="respuesta__texto">{reply.text}</span>
+                    </div>
+                  ))}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
-      {thread.length === 0 && (
-        <p className="card card--muted">
-          Todavía no nos escribiste. Lo que mandes aparece acá con su respuesta.
-        </p>
-      )}
-
-      {thread.map((item) => (
-        <article key={item.id} className="card">
-          <div className="entry__head">
-            <span>
-              <span className="tag">{TYPE_LABEL[item.type] ?? item.type}</span>{' '}
-              {item.channel === 'whatsapp' && <span className="tag">WhatsApp</span>}
-            </span>
-            {item.pending
-              ? <span className="tag tag--pending">Pendiente de enviar</span>
-              : <span className={item.status === 'abierto' ? 'tag tag--pending' : 'tag tag--ok'}>
-                  {STATUS_LABEL[item.status] ?? item.status}
-                </span>}
-          </div>
-          <p className="small muted">{new Date(item.createdAt).toLocaleString('es-PE')}</p>
-          <p>{item.text}</p>
-
-          {item.replies.map((reply, index) => (
-            <div key={`${item.id}-${index}`} className="thread-reply">
-              <strong className="small">Leer en Familia</strong>
-              <p className="small muted">{new Date(reply.at).toLocaleString('es-PE')}</p>
-              <p>{reply.text}</p>
-            </div>
-          ))}
-        </article>
-      ))}
-    </section>
+      <div className="pantalla__accion">
+        <button type="submit" className="btn" disabled={busy || text.trim() === ''}>Enviar</button>
+      </div>
+    </form>
   );
 }
