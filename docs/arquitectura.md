@@ -59,7 +59,7 @@ Tabla única, `PK`/`SK`, `PAY_PER_REQUEST`, un GSI.
 | Consentimiento (inscripción) | `FAMILY#<fid>` | `CONSENT#<iso_ts>` | — | — |
 | Cambio de consentimiento (PWA) | `FAMILY#<fid>` | `CONSENT#<iso_ts_dispositivo>#<clientId>` | — | — |
 | Acceso a recurso | `FAMILY#<fid>` | `ACCESS#<iso_ts>#<rid>` | — | — |
-| Bitácora | `FAMILY#<fid>` | `LOG#<iso_ts>` | — | — |
+| Bitácora | `FAMILY#<fid>` | `LOG#<fecha>T00:00:00.000Z#<clientId>` | — | — |
 | Feedback | `FAMILY#<fid>` | `FEEDBACK#<iso_ts>` | `PROGRAM#<pid>#FEEDBACK#<estado>` | `<iso_ts>#<fid>` |
 | Envío | `FAMILY#<fid>` | `DELIVERY#<iso_week>` | — | — |
 | Auditoría gestor | `AUDIT#<yyyy-mm>` | `<iso_ts>#<gestor_sub>` | — | — |
@@ -276,7 +276,8 @@ El historial que ve la familia mezcla lo del servidor con lo que sigue en la col
 cuando sincroniza, y nunca aparece duplicada.
 
 La idempotencia es estructural: el id que genera el dispositivo forma parte de la clave de ordenamiento
-(`LOG#<ts>#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer antes de escribir.
+(`LOG#<fecha>T00:00:00.000Z#<clientId>`), así que reenviar la cola sobrescribe en vez de duplicar, sin leer
+antes de escribir.
 
 ### El cerebro que crece
 
@@ -340,8 +341,9 @@ La configuración del user pool no va compilada en el bundle sino en un `config.
 desplegar desde los outputs del stack, así un mismo build sirve para cualquier stack. Está excluido del
 precache del service worker para que nunca quede una versión vieja.
 
-**El bundle del gestor pesa 103 KB y el de la familia 17 KB, y son chunks separados**: el dispositivo de una
-familia nunca descarga el código de Cognito ni la vista de gestión.
+**El bundle del gestor pesa 124 KB (37 KB comprimido con gzip) y el de la familia 41 KB (13 KB comprimido), y
+son chunks separados**: el dispositivo de una familia nunca descarga el código de Cognito ni la vista de
+gestión.
 
 ## Exportación de indicadores (fase 7)
 

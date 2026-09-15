@@ -109,9 +109,11 @@ Si necesita romper alguna, dígalo explícitamente y agregue una entrada a `docs
 11. **No invente contenido del programa.** Ni canciones, ni textos de libros, ni actividades: hay
     derechos de autor y lo define la ONG. Todo lo que hay es placeholder y está marcado como tal.
 12. **No agregue analítica de terceros.** Si hay que medir, endpoint propio contra DynamoDB.
-13. **Antes de agregar una dependencia, justifíquela en una línea** en el commit. Hoy el backend tiene
-    tres (SDK de AWS y esbuild) y la web cuatro. Las fuentes (Literata y Atkinson Hyperlegible) son
-    archivos WOFF2 del repo, en `web/src/shared/fonts/`, no dependencias (D-023).
+13. **Antes de agregar una dependencia, justifíquela en una línea** en el commit. Se cuentan las
+    `dependencies` de producción de cada `package.json`, no las `devDependencies` (tipos, build,
+    testing). Hoy el backend tiene cuatro (tres paquetes de `@aws-sdk` y esbuild) y la web tres
+    (`amazon-cognito-identity-js`, `react` y `react-dom`). Las fuentes (Literata y Atkinson
+    Hyperlegible) son archivos WOFF2 del repo, en `web/src/shared/fonts/`, no dependencias (D-023).
 
 ## Estado
 
