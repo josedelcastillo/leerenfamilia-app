@@ -90,6 +90,9 @@ img { max-width: 100%; }
 }
 
 .app { position: relative; max-width: 30rem; margin: 0 auto; padding: 0 28px; }
+/* The tabs are fixed over the bottom of the page. Without this room, the sticky action can never
+   reach its place in the flow at the end of the scroll and covers the last row of content. */
+.app--con-tabs { padding-bottom: calc(var(--touch) + env(safe-area-inset-bottom)); }
 
 /* One screen: content, then one primary action in the lower third. */
 .pantalla {

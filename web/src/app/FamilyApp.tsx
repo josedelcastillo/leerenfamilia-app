@@ -220,7 +220,7 @@ export default function FamilyApp() {
   return (
     <div className="familia">
       {withHalo && <div className="halo" aria-hidden="true" />}
-      <main className={withTabs ? 'app' : 'app app--sin-tabs'}>
+      <main className={withTabs ? 'app app--con-tabs' : 'app app--sin-tabs'}>
         <Conexion
           online={sync.online}
           pending={visibleQueue(sync.pendingItems).length}
