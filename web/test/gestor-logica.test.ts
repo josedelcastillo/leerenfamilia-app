@@ -4,7 +4,7 @@ import type { Dashboard, FamilyRow } from '../src/gestor/api.ts';
 import { daysSince, limaToday, rangoSemana, shortId, whenLabel } from '../src/gestor/tiempo.ts';
 import { caregiversLabel, estadoFamilia, filterRows, lastEntryLabel } from '../src/gestor/familias-estado.ts';
 import { auditRow } from '../src/gestor/auditoria.ts';
-import { participationBars, reportPlainText, reportSummary } from '../src/gestor/reporte.ts';
+import { MAILTO_MAX, mailtoHref, participationBars, reportPlainText, reportSummary } from '../src/gestor/reporte.ts';
 
 function row(overrides: Partial<FamilyRow> = {}): FamilyRow {
   return {
@@ -38,7 +38,10 @@ describe('tiempo (hora de Lima, sin horario de verano)', () => {
     assert.equal(daysSince('2026-09-12T10:00:00.000Z', '2026-09-14'), 2);
     assert.equal(rangoSemana('2026-09-09'), '3 al 9 de septiembre de 2026');
     assert.equal(rangoSemana('2026-09-03'), '28 de agosto al 3 de septiembre de 2026');
-    assert.equal(shortId('a1b2c3d4-0000'), 'F-A1B2');
+    assert.equal(shortId('a1b2c3d4-0000'), 'F-A1B2C3');
+  });
+  test('rangoSemana incluye el año de inicio cuando la semana cruza el 1 de enero', () => {
+    assert.equal(rangoSemana('2026-01-03'), '28 de diciembre de 2025 al 3 de enero de 2026');
   });
 });
 
@@ -77,7 +80,7 @@ describe('auditoría', () => {
   });
   test('abrir una ficha nombra a la familia por su id corto', () => {
     const r = auditRow({ gestorSub: 's', gestorEmail: 'jose.d@x.pe', action: 'ver_detalle_familia', familyId: 'a1b2c3d4-0000', at: '2026-09-13T22:48:00.000Z' }, '2026-09-14');
-    assert.equal(r.que, 'Familia F-A1B2');
+    assert.equal(r.que, 'Familia F-A1B2C3');
     assert.equal(r.alerta, false);
   });
 });
@@ -105,5 +108,14 @@ describe('reporte semanal', () => {
     const text = reportPlainText(dashboard(), 'Entregas en el control\n\nMás lecturas de noche', new Date('2026-09-10T15:00:00.000Z'));
     assert.match(text, /- Entregas en el control\n- Más lecturas de noche/);
     assert.match(text, /no contiene notas de familias sin consentimiento/);
+  });
+  test('mailtoHref no toca un cuerpo corto', () => {
+    const href = mailtoHref('Reporte semanal', 'Cuerpo corto');
+    assert.equal(href, `mailto:?subject=${encodeURIComponent('Reporte semanal')}&body=${encodeURIComponent('Cuerpo corto')}`);
+  });
+  test('mailtoHref recorta un cuerpo largo para no exceder MAILTO_MAX', () => {
+    const href = mailtoHref('Reporte semanal', 'x'.repeat(5000));
+    assert.ok(href.length <= MAILTO_MAX, `href.length fue ${href.length}`);
+    assert.match(decodeURIComponent(href), /Resumen recortado: use "Copiar resumen como texto" para el texto completo\./);
   });
 });

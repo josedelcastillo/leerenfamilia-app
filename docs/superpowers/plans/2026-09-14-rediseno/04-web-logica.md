@@ -816,7 +816,7 @@ import type { Dashboard, FamilyRow } from '../src/gestor/api.ts';
 import { daysSince, limaToday, rangoSemana, shortId, whenLabel } from '../src/gestor/tiempo.ts';
 import { caregiversLabel, estadoFamilia, filterRows, lastEntryLabel } from '../src/gestor/familias-estado.ts';
 import { auditRow } from '../src/gestor/auditoria.ts';
-import { participationBars, reportPlainText, reportSummary } from '../src/gestor/reporte.ts';
+import { MAILTO_MAX, mailtoHref, participationBars, reportPlainText, reportSummary } from '../src/gestor/reporte.ts';
 
 function row(overrides: Partial<FamilyRow> = {}): FamilyRow {
   return {
@@ -850,7 +850,10 @@ describe('tiempo (hora de Lima, sin horario de verano)', () => {
     assert.equal(daysSince('2026-09-12T10:00:00.000Z', '2026-09-14'), 2);
     assert.equal(rangoSemana('2026-09-09'), '3 al 9 de septiembre de 2026');
     assert.equal(rangoSemana('2026-09-03'), '28 de agosto al 3 de septiembre de 2026');
-    assert.equal(shortId('a1b2c3d4-0000'), 'F-A1B2');
+    assert.equal(shortId('a1b2c3d4-0000'), 'F-A1B2C3');
+  });
+  test('rangoSemana incluye el año de inicio cuando la semana cruza el 1 de enero', () => {
+    assert.equal(rangoSemana('2026-01-03'), '28 de diciembre de 2025 al 3 de enero de 2026');
   });
 });
 
@@ -889,7 +892,7 @@ describe('auditoría', () => {
   });
   test('abrir una ficha nombra a la familia por su id corto', () => {
     const r = auditRow({ gestorSub: 's', gestorEmail: 'jose.d@x.pe', action: 'ver_detalle_familia', familyId: 'a1b2c3d4-0000', at: '2026-09-13T22:48:00.000Z' }, '2026-09-14');
-    assert.equal(r.que, 'Familia F-A1B2');
+    assert.equal(r.que, 'Familia F-A1B2C3');
     assert.equal(r.alerta, false);
   });
 });
@@ -917,6 +920,15 @@ describe('reporte semanal', () => {
     const text = reportPlainText(dashboard(), 'Entregas en el control\n\nMás lecturas de noche', new Date('2026-09-10T15:00:00.000Z'));
     assert.match(text, /- Entregas en el control\n- Más lecturas de noche/);
     assert.match(text, /no contiene notas de familias sin consentimiento/);
+  });
+  test('mailtoHref no toca un cuerpo corto', () => {
+    const href = mailtoHref('Reporte semanal', 'Cuerpo corto');
+    assert.equal(href, `mailto:?subject=${encodeURIComponent('Reporte semanal')}&body=${encodeURIComponent('Cuerpo corto')}`);
+  });
+  test('mailtoHref recorta un cuerpo largo para no exceder MAILTO_MAX', () => {
+    const href = mailtoHref('Reporte semanal', 'x'.repeat(5000));
+    assert.ok(href.length <= MAILTO_MAX, `href.length fue ${href.length}`);
+    assert.match(decodeURIComponent(href), /Resumen recortado: use "Copiar resumen como texto" para el texto completo\./);
   });
 });
 ```
@@ -965,19 +977,29 @@ export function fechaLarga(date: string): string {
   return `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
 }
 
-/** The seven days ending on the cutoff: "3 al 9 de septiembre de 2026". */
+/**
+ * The seven days ending on the cutoff: "3 al 9 de septiembre de 2026". When the week crosses a
+ * year boundary the start needs its own year too, or "28 de diciembre al 3 de enero de 2026" reads
+ * as if both dates were the same year.
+ */
 export function rangoSemana(corte: string): string {
   const end = new Date(dayMs(corte));
   const start = new Date(dayMs(corte) - 6 * 86_400_000);
-  const startLabel = start.getUTCMonth() === end.getUTCMonth()
-    ? `${start.getUTCDate()}`
-    : `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]}`;
+  const startLabel = start.getUTCFullYear() !== end.getUTCFullYear()
+    ? `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]} de ${start.getUTCFullYear()}`
+    : start.getUTCMonth() === end.getUTCMonth()
+      ? `${start.getUTCDate()}`
+      : `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]}`;
   return `${startLabel} al ${fechaLarga(corte)}`;
 }
 
-/** A short, pseudonymous handle for a family id: the list never shows phone numbers. */
+/**
+ * A short, pseudonymous handle for a family id: the list never shows phone numbers. 6 hex chars
+ * (16^6 ≈ 16.7M buckets) instead of 4 (16^4 ≈ 65k): at 50 families a birthday-paradox collision is
+ * ~1.8% with 4 chars, versus ~0.007% with 6 — low enough to not worry about in a 50-family pilot.
+ */
 export function shortId(familyId: string): string {
-  return `F-${familyId.replace(/[^0-9a-z]/gi, '').slice(0, 4).toUpperCase()}`;
+  return `F-${familyId.replace(/[^0-9a-z]/gi, '').slice(0, 6).toUpperCase()}`;
 }
 ```
 
@@ -1144,8 +1166,36 @@ export function reportPlainText(d: Dashboard, observaciones: string, generado: D
   return lines.join('\n');
 }
 
+/** Some mail clients truncate `mailto:` URLs past this length. */
+export const MAILTO_MAX = 1900;
+
+const TRUNCATION_NOTICE = '\n\n[Resumen recortado: use "Copiar resumen como texto" para el texto completo.]';
+
+/**
+ * Builds a `mailto:` URL, cutting the plain body (before encoding, so multi-byte characters do not
+ * distort the budget) when it would push the encoded URL past MAILTO_MAX. The full text is always
+ * available via "Copiar resumen como texto"; this just keeps the mail client from silently losing
+ * the tail of a long report with free-text observations.
+ */
 export function mailtoHref(subject: string, body: string): string {
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const build = (b: string) => `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(b)}`;
+  const full = build(body);
+  if (full.length <= MAILTO_MAX) return full;
+
+  let lo = 0;
+  let hi = body.length;
+  let best = TRUNCATION_NOTICE;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const candidate = body.slice(0, mid) + TRUNCATION_NOTICE;
+    if (build(candidate).length <= MAILTO_MAX) {
+      best = candidate;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return build(best);
 }
 ```
 
@@ -1173,8 +1223,12 @@ export async function descargarCsv(dataset: string): Promise<void> {
   const link = document.createElement('a');
   link.href = url;
   link.download = `nplp-${dataset}.csv`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Safari can cancel the download if the object URL is revoked before it has started reading it;
+  // deferring to the next tick lets the click's navigation begin first.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 ```
 

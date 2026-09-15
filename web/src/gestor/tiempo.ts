@@ -37,17 +37,27 @@ export function fechaLarga(date: string): string {
   return `${d.getUTCDate()} de ${MESES[d.getUTCMonth()]} de ${d.getUTCFullYear()}`;
 }
 
-/** The seven days ending on the cutoff: "3 al 9 de septiembre de 2026". */
+/**
+ * The seven days ending on the cutoff: "3 al 9 de septiembre de 2026". When the week crosses a
+ * year boundary the start needs its own year too, or "28 de diciembre al 3 de enero de 2026" reads
+ * as if both dates were the same year.
+ */
 export function rangoSemana(corte: string): string {
   const end = new Date(dayMs(corte));
   const start = new Date(dayMs(corte) - 6 * 86_400_000);
-  const startLabel = start.getUTCMonth() === end.getUTCMonth()
-    ? `${start.getUTCDate()}`
-    : `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]}`;
+  const startLabel = start.getUTCFullYear() !== end.getUTCFullYear()
+    ? `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]} de ${start.getUTCFullYear()}`
+    : start.getUTCMonth() === end.getUTCMonth()
+      ? `${start.getUTCDate()}`
+      : `${start.getUTCDate()} de ${MESES[start.getUTCMonth()]}`;
   return `${startLabel} al ${fechaLarga(corte)}`;
 }
 
-/** A short, pseudonymous handle for a family id: the list never shows phone numbers. */
+/**
+ * A short, pseudonymous handle for a family id: the list never shows phone numbers. 6 hex chars
+ * (16^6 ≈ 16.7M buckets) instead of 4 (16^4 ≈ 65k): at 50 families a birthday-paradox collision is
+ * ~1.8% with 4 chars, versus ~0.007% with 6 — low enough to not worry about in a 50-family pilot.
+ */
 export function shortId(familyId: string): string {
-  return `F-${familyId.replace(/[^0-9a-z]/gi, '').slice(0, 4).toUpperCase()}`;
+  return `F-${familyId.replace(/[^0-9a-z]/gi, '').slice(0, 6).toUpperCase()}`;
 }

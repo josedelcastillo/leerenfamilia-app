@@ -64,6 +64,34 @@ export function reportPlainText(d: Dashboard, observaciones: string, generado: D
   return lines.join('\n');
 }
 
+/** Some mail clients truncate `mailto:` URLs past this length. */
+export const MAILTO_MAX = 1900;
+
+const TRUNCATION_NOTICE = '\n\n[Resumen recortado: use "Copiar resumen como texto" para el texto completo.]';
+
+/**
+ * Builds a `mailto:` URL, cutting the plain body (before encoding, so multi-byte characters do not
+ * distort the budget) when it would push the encoded URL past MAILTO_MAX. The full text is always
+ * available via "Copiar resumen como texto"; this just keeps the mail client from silently losing
+ * the tail of a long report with free-text observations.
+ */
 export function mailtoHref(subject: string, body: string): string {
-  return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const build = (b: string) => `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(b)}`;
+  const full = build(body);
+  if (full.length <= MAILTO_MAX) return full;
+
+  let lo = 0;
+  let hi = body.length;
+  let best = TRUNCATION_NOTICE;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const candidate = body.slice(0, mid) + TRUNCATION_NOTICE;
+    if (build(candidate).length <= MAILTO_MAX) {
+      best = candidate;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return build(best);
 }

@@ -13,6 +13,10 @@ export async function descargarCsv(dataset: string): Promise<void> {
   const link = document.createElement('a');
   link.href = url;
   link.download = `nplp-${dataset}.csv`;
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  link.remove();
+  // Safari can cancel the download if the object URL is revoked before it has started reading it;
+  // deferring to the next tick lets the click's navigation begin first.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
