@@ -425,6 +425,8 @@ textarea {
 }
 .tabs button[aria-current='page'] { color: var(--brand); font-weight: 700; border-top-color: var(--brand); }
 
+.semana-abierta { padding: 10px 0 4px 12px; }
+
 /* --- heredado: se borra en la tarea 6.2 ----------------------------------- */
 .muted { color: var(--ink-soft); }
 .small { font-size: 0.85rem; }
