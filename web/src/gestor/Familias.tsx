@@ -1,14 +1,32 @@
 import { useEffect, useState } from 'react';
 import { gestorApi, type FamilyDetail, type FamilyRow } from './api.ts';
+import { Cabecera } from './Cabecera.tsx';
+import { descargarCsv } from './descargar.ts';
+import {
+  ESTADO_LABEL,
+  caregiversLabel,
+  estadoFamilia,
+  filterRows,
+  lastEntryLabel,
+  type EstadoFamilia,
+} from './familias-estado.ts';
+import { Ficha } from './Ficha.tsx';
+import { limaToday, shortId } from './tiempo.ts';
 
-const KIND_LABEL: Record<string, string> = {
-  lectura: 'Lectura', cancion: 'Canción', juego: 'Juego', conversacion: 'Conversación',
-};
-
+/**
+ * Screens 10 and 11. The list carries aggregates only and is not audited; opening a family is the
+ * audited act, which is why the detail loads on click instead of alongside the list.
+ */
 export function Familias() {
   const [rows, setRows] = useState<FamilyRow[] | null>(null);
+  const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<FamilyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [semana, setSemana] = useState<number | null>(null);
+  const [estado, setEstado] = useState<EstadoFamilia | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const today = limaToday(new Date());
 
   useEffect(() => {
     gestorApi.familias()
@@ -16,141 +34,99 @@ export function Familias() {
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Error'));
   }, []);
 
-  if (error !== null) return <p className="banner banner--error">{error}</p>;
-  if (rows === null) return <p className="muted">Cargando…</p>;
+  async function open(row: FamilyRow) {
+    setSelected(row.familyId);
+    setDetail(null);
+    try {
+      setDetail(await gestorApi.familia(row.familyId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo abrir la ficha');
+    }
+  }
+
+  async function exportCsv() {
+    setExporting(true);
+    try {
+      await descargarCsv('familias');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo exportar');
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const visible = rows === null ? [] : filterRows(rows, { query, semana, estado });
 
   return (
-    <div className="split">
-      <section>
-        <h2>Familias ({rows.length})</h2>
-        <p className="small muted">
-          Ordenadas por atención pendiente: primero las que tienen mensajes sin responder, después
-          las que menos actividad registraron.
-        </p>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Bebé</th>
-                <th scope="col">Sem.</th>
-                <th scope="col">Bitácora 7d</th>
-                <th scope="col">Min. 7d</th>
-                <th scope="col">Envíos</th>
-                <th scope="col">Abiertos</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.familyId}>
-                  <td>
-                    <button
-                      type="button"
-                      className="row-link"
-                      onClick={() => {
-                        setDetail(null);
-                        void gestorApi.familia(row.familyId).then(setDetail).catch(() => undefined);
-                      }}
-                    >
-                      {row.babyName || row.familyId}
-                    </button>
-                    {row.status !== 'activa' && <> <span className="pill pill--quiet">{row.status}</span></>}
-                  </td>
-                  <td className="num">{row.finished ? '—' : row.programWeek}</td>
-                  <td className="num">
-                    {row.logEntriesLast7Days === 0
-                      ? <span className="pill pill--alert">0</span>
-                      : row.logEntriesLast7Days}
-                  </td>
-                  <td className="num">{row.minutesLast7Days}</td>
-                  <td className="num">{row.deliveries}</td>
-                  <td className="num">
-                    {row.openFeedback > 0
-                      ? <span className="pill pill--alert">{row.openFeedback}</span>
-                      : <span className="pill pill--ok">0</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+    <>
+      <Cabecera titulo="Familias" {...(rows !== null ? { subtitulo: `${rows.length} familias; primero las que necesitan atención` } : {})}>
+        <input type="search" aria-label="Buscar familia" placeholder="Buscar por nombre" value={query}
+               onChange={(event) => setQuery(event.target.value)} />
+        <select aria-label="Semana" value={semana ?? ''}
+                onChange={(event) => setSemana(event.target.value === '' ? null : Number(event.target.value))}>
+          <option value="">Todas las semanas</option>
+          {Array.from({ length: 8 }, (_, index) => <option key={index + 1} value={index + 1}>Semana {index + 1}</option>)}
+        </select>
+        <select aria-label="Estado" value={estado ?? ''}
+                onChange={(event) => setEstado(event.target.value === '' ? null : (event.target.value as EstadoFamilia))}>
+          <option value="">Todos los estados</option>
+          {(Object.keys(ESTADO_LABEL) as EstadoFamilia[]).map((key) => <option key={key} value={key}>{ESTADO_LABEL[key]}</option>)}
+        </select>
+        <button type="button" className="g-btn g-btn--oscuro" disabled={exporting} onClick={() => void exportCsv()}>
+          {exporting ? 'Generando…' : 'Exportar CSV'}
+        </button>
+      </Cabecera>
 
-      <section aria-live="polite">
-        {detail === null
-          ? <p className="muted small">Elige una familia para ver su detalle.</p>
-          : <Detalle detail={detail} />}
-      </section>
-    </div>
-  );
-}
+      <div className="g-cuerpo">
+        {error !== null && <p className="g-error" role="alert">{error}</p>}
+        {rows === null && error === null && <p className="g-faint">Cargando…</p>}
+        {rows !== null && (
+          <div className="g-split">
+            <div className="g-tabla-caja">
+              <table className="g-tabla g-tabla--familias">
+                <thead>
+                  <tr>
+                    <th scope="col">Familia</th>
+                    <th scope="col">Cuidadores</th>
+                    <th scope="col">Semana</th>
+                    <th scope="col">Último registro</th>
+                    <th scope="col">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.length === 0 && (
+                    <tr><td colSpan={5}>Ninguna familia coincide con el filtro.</td></tr>
+                  )}
+                  {visible.map((row) => {
+                    const status = estadoFamilia(row);
+                    return (
+                      <tr key={row.familyId} aria-current={selected === row.familyId ? 'true' : undefined}>
+                        <td className="g-celda-principal">
+                          <button type="button" className="g-fila-boton" onClick={() => void open(row)}>
+                            {row.babyName || shortId(row.familyId)}
+                          </button>
+                        </td>
+                        <td>{caregiversLabel(row.caregivers)}</td>
+                        <td>{row.finished ? 'Terminó' : row.programWeek}</td>
+                        <td>{lastEntryLabel(row.lastEntryDate, today)}</td>
+                        <td><span className={`g-estado g-estado--${status}`}>{ESTADO_LABEL[status]}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-function Detalle({ detail }: { detail: FamilyDetail }) {
-  return (
-    <article className="card">
-      <h2>{detail.babyName || detail.familyId}</h2>
-      <p className="small muted">
-        Semana {detail.programWeek} · ingresó el {detail.anchorDate} · {detail.status}
-      </p>
-
-      <h3>Adherencia</h3>
-      <p className="small">
-        <strong>{detail.summary.entries}</strong> registros en total,{' '}
-        <strong>{detail.summary.distinctDays}</strong> días distintos,{' '}
-        <strong>{detail.summary.totalMinutes}</strong> minutos.
-        <br />
-        Últimos 7 días: {detail.summaryLast7Days.entries} registros,{' '}
-        {detail.summaryLast7Days.totalMinutes} minutos.
-      </p>
-      <ul className="small">
-        {Object.entries(detail.summary.byKind).map(([kind, count]) => (
-          <li key={kind}>{KIND_LABEL[kind] ?? kind}: {count}</li>
-        ))}
-      </ul>
-
-      <h3>Bitácora</h3>
-      {!detail.notesVisible && (
-        <p className="consent-warning">
-          Esta familia no autorizó que el equipo lea el texto de sus notas. Ves las actividades y
-          los tiempos, no lo que escribieron.
-        </p>
-      )}
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Día</th>
-              <th scope="col">Actividad</th>
-              <th scope="col">Min.</th>
-              <th scope="col">Quién</th>
-              {detail.notesVisible && <th scope="col">Nota</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {detail.entries.length === 0 && (
-              <tr><td colSpan={5} className="muted">Sin registros todavía.</td></tr>
-            )}
-            {[...detail.entries].sort((a, b) => b.date.localeCompare(a.date)).map((entry, index) => (
-              <tr key={`${entry.date}-${index}`}>
-                <td>{entry.date}</td>
-                <td>{KIND_LABEL[entry.kind] ?? entry.kind}</td>
-                <td className="num">{entry.minutes}</td>
-                <td>{entry.loggedBy}</td>
-                {detail.notesVisible && <td>{entry.note ?? ''}</td>}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            <div aria-live="polite">
+              {selected === null
+                ? <p className="g-faint">Elige una familia para ver su ficha. Abrirla queda registrado.</p>
+                : detail === null
+                  ? <p className="g-faint">Cargando…</p>
+                  : <Ficha detail={detail} />}
+            </div>
+          </div>
+        )}
       </div>
-
-      <h3>Cuidadores</h3>
-      <ul className="small">
-        {detail.caregivers.map((caregiver) => (
-          <li key={caregiver.msisdn}>
-            {caregiver.msisdn} · {caregiver.role} ·{' '}
-            {caregiver.optIn ? 'recibe mensajes' : <strong>dado de baja</strong>}
-          </li>
-        ))}
-      </ul>
-    </article>
+    </>
   );
 }

@@ -136,7 +136,13 @@
 }
 .g-tabla tr:last-child td { border-bottom: 0; }
 .g-tabla td.g-celda-principal { font-weight: 700; color: var(--ink); }
-.g-tabla tr[aria-selected='true'] td { background: var(--g-select); }
+/* aria-current, not aria-selected: this is a plain table, not a grid widget. */
+.g-tabla tr[aria-current='true'] td { background: var(--g-select); }
+.g-tabla--familias th:nth-child(1) { width: 30%; }
+.g-tabla--familias th:nth-child(2) { width: 18%; }
+.g-tabla--familias th:nth-child(3) { width: 14%; }
+.g-tabla--familias th:nth-child(4) { width: 20%; }
+.g-tabla--familias th:nth-child(5) { width: 18%; }
 .g-fila-boton { padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: inherit; cursor: pointer; text-align: left; }
 .g-estado { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); }
 .g-estado::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--g-ink-faint); }
