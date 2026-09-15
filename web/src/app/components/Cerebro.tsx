@@ -68,7 +68,7 @@ export function Cerebro({ state }: { state: BrainState }) {
 
       <figcaption>
         {total === 0 ? (
-          <p className="small muted">
+          <p className="meta">
             Cada día que pases un rato con tu bebé enciende una conexión nueva. Empieza cuando quieras.
           </p>
         ) : (
