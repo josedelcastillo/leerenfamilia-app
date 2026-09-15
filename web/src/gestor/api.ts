@@ -39,6 +39,9 @@ export interface FamilyRow {
   openFeedback: number;
   caregiversOptedIn: number;
   deliveries: number;
+  lastEntryDate: string | null;
+  totalEntries: number;
+  caregivers: Array<{ role: 'principal' | 'secundario'; relation: 'mama' | 'papa' | 'otra' | null; optIn: boolean }>;
 }
 
 export interface FeedbackReply {
@@ -66,6 +69,7 @@ export interface InboxItem {
 export interface LogSummary {
   entries: number;
   totalMinutes: number;
+  entriesWithMinutes: number;
   byKind: Record<string, number>;
   distinctDays: number;
 }
@@ -78,10 +82,14 @@ export interface FamilyDetail {
   anchorDate: string;
   summary: LogSummary;
   summaryLast7Days: LogSummary;
-  entries: Array<{ date: string; kind: string; minutes: number; note: string | null; loggedBy: string }>;
+  entries: Array<{
+    date: string; kind: string; minutes: number | null; note: string | null;
+    loggedBy: string; declaredBy: 'mama' | 'papa' | 'otra' | null;
+  }>;
   notesVisible: boolean;
+  notesCount: number;
   feedback: Feedback[];
-  caregivers: Array<{ msisdn: string; role: string; optIn: boolean }>;
+  caregivers: Array<{ msisdn: string; role: string; optIn: boolean; relation: 'mama' | 'papa' | 'otra' | null }>;
 }
 
 export interface ReplyOutcome {
@@ -89,6 +97,30 @@ export interface ReplyOutcome {
   channel: string;
   notified: boolean;
   reason?: string;
+}
+
+export interface Dashboard {
+  corte: string;
+  programWeeks: number;
+  semanaPiloto: number;
+  registradas: number;
+  activasEstaSemana: number;
+  registrosSemana: number;
+  registrosTotales: number;
+  ambosCuidadores: number;
+  sinRegistros7Dias: number;
+  mensajesSinResponder: number;
+  consentimientoNotas: { autorizan: number; de: number };
+  participacionPorSemana: Array<{ semana: number; alcanzaron: number; activas: number }>;
+}
+
+export interface AuditEntry {
+  gestorSub: string;
+  gestorEmail: string;
+  action: 'ver_detalle_familia' | 'exportar_datos' | 'responder_feedback';
+  familyId: string | null;
+  at: string;
+  detail?: string;
 }
 
 export const gestorApi = {
@@ -106,4 +138,6 @@ export const gestorApi = {
       method: 'POST',
       body: JSON.stringify({ familyId, feedbackId }),
     }),
+  tablero: () => request<Dashboard>('/tablero'),
+  auditoria: () => request<{ entradas: AuditEntry[] }>('/auditoria'),
 };
