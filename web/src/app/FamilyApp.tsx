@@ -192,7 +192,9 @@ export default function FamilyApp() {
       screen = <Cola online={sync.online} items={sync.pendingItems} onBack={back} />;
       break;
     case 'privacidad':
-      screen = <Privacidad pendingItems={sync.pendingItems} enqueue={sync.enqueue} onBack={back} />;
+      screen = (
+        <Privacidad pendingItems={sync.pendingItems} syncedAt={sync.syncedAt} enqueue={sync.enqueue} onBack={back} />
+      );
       break;
     case 'tabs':
       screen =

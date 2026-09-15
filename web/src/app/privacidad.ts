@@ -27,6 +27,25 @@ export function effectiveNotesConsent(
   return latest === undefined ? server : (latest.payload['notesAuthorized'] as boolean);
 }
 
+/**
+ * What the switch shows once the family has changed it on this screen. A queued change always wins.
+ * When it syncs it leaves the queue, and the server value in hand was read before the change: showing
+ * it would flip a revocation back to "Activado" for a moment, and a second tap would re-grant. So until
+ * the server is read again, the switch keeps the family's last choice. After that re-read the server is
+ * the truth — if it ignored an older change (D-025), the switch moves back and the family sees it.
+ */
+export function displayedNotesConsent(
+  server: boolean | null,
+  queued: readonly QueuedItem[],
+  lastChoice: boolean | null,
+  serverFresh: boolean,
+): boolean | null {
+  const pending = effectiveNotesConsent(null, queued);
+  if (pending !== null) return pending;
+  if (lastChoice !== null && !serverFresh) return lastChoice;
+  return server;
+}
+
 export function consentPayload(clientId: string, notesAuthorized: boolean, now: Date): Record<string, unknown> {
   return { clientId, notesAuthorized, at: now.toISOString(), version: CONSENT_TEXT_VERSION };
 }

@@ -6,6 +6,7 @@ import {
   CONSENT_TEXT_VERSION,
   SUPPRESSION_REQUEST_TEXT,
   consentPayload,
+  displayedNotesConsent,
   effectiveNotesConsent,
   suppressionPayload,
 } from '../src/app/privacidad.ts';
@@ -44,6 +45,30 @@ describe('privacidad', () => {
       item('consentimiento', { clientId: 'b', notesAuthorized: true }, '2026-09-14T09:00:00.000Z'),
     ];
     assert.equal(effectiveNotesConsent(false, queued), true);
+  });
+
+  describe('lo que muestra el interruptor', () => {
+    const revoke = [item('consentimiento', { clientId: 'r', notesAuthorized: false })];
+
+    test('un cambio en cola gana sobre todo lo demás', () => {
+      assert.equal(displayedNotesConsent(true, revoke, true, true), false);
+      assert.equal(displayedNotesConsent(true, revoke, null, false), false);
+    });
+
+    test('con la cola vacía y la relectura pendiente, muestra lo último que eligió la familia', () => {
+      // The change synced and left the queue, but the server value in hand is from before it.
+      assert.equal(displayedNotesConsent(true, [], false, false), false);
+    });
+
+    test('con la cola vacía y el valor del servidor ya releído, manda el servidor', () => {
+      // The server is the truth: an older change it ignored (D-025) shows the switch flip back.
+      assert.equal(displayedNotesConsent(true, [], false, true), true);
+    });
+
+    test('si la familia no cambió nada, muestra el servidor', () => {
+      assert.equal(displayedNotesConsent(true, [], null, false), true);
+      assert.equal(displayedNotesConsent(null, [], null, false), null);
+    });
   });
 
   test('el cambio lleva fecha, versión del texto y el valor nuevo', () => {
