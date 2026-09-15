@@ -1,6 +1,6 @@
 import type { IsoDate } from '../../domain/dates.ts';
 import { DomainError } from '../../domain/errors.ts';
-import { parseLogEntry, type DeclaredBy, type LogEntry, type LoggedBy } from '../../domain/log-entry.ts';
+import { parseLogEntry, type LogEntry, type LoggedBy } from '../../domain/log-entry.ts';
 import type { FamilyContext, FamilyStore, ResourceAccess } from '../family-ports.ts';
 
 export type SyncItem =
@@ -117,11 +117,8 @@ export interface OwnLogResponse {
   readonly entries: readonly LogEntry[];
   /** Whether the team may read the notes, so the privacy screen shows the real state (D-025). */
   readonly notesAuthorized: boolean;
-  /**
-   * What the caregiver on this phone declared at activation. The family app no longer pre-selects
-   * "who did it" with it (D-024) and nothing in it reads this today; the manager's detail shows it.
-   */
-  readonly relation: DeclaredBy | null;
+  // No caregiver relation: the family app does not use it (D-024), so it does not travel back to
+  // the phone. It stays stored and the manager's detail shows it.
 }
 
 /**
@@ -133,12 +130,10 @@ export interface OwnLogResponse {
 export async function listOwnLog(
   store: FamilyStore,
   context: FamilyContext,
-  principalMsisdn: string,
 ): Promise<OwnLogResponse> {
   const entries = await store.listLogEntries(context.familyId);
   return {
     entries: [...entries].sort((a, b) => b.date.localeCompare(a.date)),
     notesAuthorized: context.freeTextNotesAuthorized,
-    relation: context.caregivers.find((c) => c.msisdn === principalMsisdn)?.relation ?? null,
   };
 }

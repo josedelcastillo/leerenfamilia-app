@@ -94,8 +94,7 @@ export interface LogEntry {
 
 export const api = {
   getContent: () => request<ContentResponse>('/contenido'),
-  listLog: () =>
-    request<{ entries: LogEntry[]; notesAuthorized: boolean; relation: DeclaredBy | null }>('/seguimiento'),
+  listLog: () => request<{ entries: LogEntry[]; notesAuthorized: boolean }>('/seguimiento'),
   listFeedback: () => request<{ feedback: Feedback[] }>('/feedback'),
   register: (payload: unknown) =>
     request<{ familyId: string; token: string; anchorDate: string }>('/registro', {

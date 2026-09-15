@@ -283,7 +283,7 @@ describe('historial propio de la bitácora', () => {
       { clientId: 'b', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'cancion', minutes: 5 } as SyncItem,
     ], TODAY, NOW);
 
-    const { entries } = await listOwnLog(store, store.context, MOTHER);
+    const { entries } = await listOwnLog(store, store.context);
     assert.deepEqual(entries.map((e) => e.date), ['2026-09-19', '2026-09-17']);
   });
 
@@ -294,19 +294,19 @@ describe('historial propio de la bitácora', () => {
       { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, note: 'le gustó' } as SyncItem,
     ], TODAY, NOW);
 
-    const { entries } = await listOwnLog(store, store.context, MOTHER);
+    const { entries } = await listOwnLog(store, store.context);
     assert.equal(entries[0]?.note, 'le gustó');
   });
 
   test('una familia sin registros recibe una lista vacía, no un error', async () => {
-    assert.deepEqual((await listOwnLog(store, store.context, MOTHER)).entries, []);
+    assert.deepEqual((await listOwnLog(store, store.context)).entries, []);
   });
 
   test('conserva el recurso asociado, para poder mostrar de qué actividad vino', async () => {
     await applySync(store, store.context, MOTHER, [
       { clientId: 'a', kind: 'bitacora', date: '2026-09-19', kind_actividad: 'lectura', minutes: 10, resourceId: 's03-lectura' } as SyncItem,
     ], TODAY, NOW);
-    assert.equal((await listOwnLog(store, store.context, MOTHER)).entries[0]?.resourceId, 's03-lectura');
+    assert.equal((await listOwnLog(store, store.context)).entries[0]?.resourceId, 's03-lectura');
   });
 });
 
@@ -514,7 +514,7 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
   test('revocar funciona igual, y el historial propio devuelve el estado nuevo', async () => {
     store.context = { ...store.context, freeTextNotesAuthorized: true };
     await applySync(store, store.context, MOTHER, [consentItem({ notesAuthorized: false })], TODAY, NOW);
-    assert.equal((await listOwnLog(store, store.context, MOTHER)).notesAuthorized, false);
+    assert.equal((await listOwnLog(store, store.context)).notesAuthorized, false);
   });
 
   test('reenviar el mismo cambio no crea un segundo registro', async () => {
@@ -644,8 +644,9 @@ describe('consentimiento de notas desde la PWA (D-025)', () => {
 });
 
 describe('historial propio: estado para la pantalla de privacidad', () => {
-  test('devuelve la relación declarada por el cuidador de este teléfono', async () => {
-    assert.equal((await listOwnLog(store, store.context, MOTHER)).relation, 'mama');
-    assert.equal((await listOwnLog(store, store.context, FATHER)).relation, null);
+  test('no devuelve la relación declarada del cuidador: la app de la familia no la usa', async () => {
+    // Data minimisation: the relation stays stored for the manager's detail, not sent to the phone.
+    assert.equal(store.context.caregivers[0]?.relation, 'mama');
+    assert.equal('relation' in await listOwnLog(store, store.context), false);
   });
 });

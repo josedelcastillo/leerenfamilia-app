@@ -69,7 +69,9 @@ export function RegistroRapido({
       setEntry(null);
       setNotice(null);
     } else {
-      setNotice('Este registro ya se envió y queda en tu bitácora.');
+      // `discard` also refuses while a sync is merely running, and that sync may still fail: the
+      // entry then stays pending and the button stays visible, so undo can be tried again.
+      setNotice('Este registro ya se está enviando. Si quieres, puedes intentar deshacerlo de nuevo en un momento.');
     }
   }
 

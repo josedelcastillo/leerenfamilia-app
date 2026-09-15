@@ -17,7 +17,7 @@ export async function handler(
     const { context, principal, today, now } = opened.session;
 
     if (event.requestContext.http.method === 'GET') {
-      return json(200, await listOwnLog(familyStore, context, principal.msisdn));
+      return json(200, await listOwnLog(familyStore, context));
     }
 
     const body = parseBody(event);
