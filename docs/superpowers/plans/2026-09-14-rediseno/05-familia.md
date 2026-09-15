@@ -584,6 +584,7 @@ export function Actividad({
   onOpen,
   onDone,
   onBack,
+  busy = false,
 }: {
   week: WeekContent;
   activity: Activity;
@@ -591,6 +592,8 @@ export function Actividad({
   /** "Ya la cantamos": logs it in one tap and moves to the confirmed logging screen. */
   onDone: () => void;
   onBack: () => void;
+  /** Disables the button while the one-tap log is in flight, so a fast double tap logs once. */
+  busy?: boolean;
 }) {
   const others = week.activities.filter((a) => a.id !== activity.id);
 
@@ -619,7 +622,7 @@ export function Actividad({
         )}
       </div>
       <div className="pantalla__accion">
-        <button type="button" className="btn" onClick={onDone}>{KIND_COPY[activity.kind].hecho}</button>
+        <button type="button" className="btn" disabled={busy} onClick={onDone}>{KIND_COPY[activity.kind].hecho}</button>
       </div>
     </section>
   );

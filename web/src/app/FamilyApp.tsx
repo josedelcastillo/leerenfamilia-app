@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import '../shared/styles.css';
 import { api, type Activity, type ActivityKind, type DeclaredBy } from '../shared/api.ts';
 import { captureTokenFromUrl } from '../shared/token.ts';
@@ -55,6 +55,11 @@ export default function FamilyApp() {
   const [token, setTokenState] = useState<string | null>(() => captureTokenFromUrl());
   const [tab, setTab] = useState<Tab>('semana');
   const [relation, setRelation] = useState<DeclaredBy | null>(null);
+  const [doneBusy, setDoneBusy] = useState(false);
+  // `doneBusy` drives the disabled state but only takes effect on the next render; a very fast
+  // double tap on "Ya la ..." can land both calls before that happens. This ref blocks the second
+  // one immediately, so a fast double tap never enqueues two bitacora entries for one activity.
+  const doneRunning = useRef(false);
   const sync = useSync();
   const contenido = useContenido();
 
@@ -123,14 +128,22 @@ export default function FamilyApp() {
     setVista({ tipo: 'registro', kind: 'lectura', resourceId: null, week, initial: null });
 
   async function doneActivity(week: number, activity: Activity) {
-    const payload = firstTapPayload({
-      clientId: crypto.randomUUID(),
-      date: todayLocal(),
-      kind: activity.kind,
-      resourceId: activity.id,
-    });
-    await sync.enqueue('bitacora', payload);
-    setVista({ tipo: 'registro', kind: activity.kind, resourceId: activity.id, week, initial: payload });
+    if (doneRunning.current) return;
+    doneRunning.current = true;
+    setDoneBusy(true);
+    try {
+      const payload = firstTapPayload({
+        clientId: crypto.randomUUID(),
+        date: todayLocal(),
+        kind: activity.kind,
+        resourceId: activity.id,
+      });
+      await sync.enqueue('bitacora', payload);
+      setVista({ tipo: 'registro', kind: activity.kind, resourceId: activity.id, week, initial: payload });
+    } finally {
+      doneRunning.current = false;
+      setDoneBusy(false);
+    }
   }
 
   let screen: ReactNode = null;
@@ -146,6 +159,7 @@ export default function FamilyApp() {
             onBack={back}
             onOpen={(next) => openActivity(week.week, next)}
             onDone={() => void doneActivity(week.week, activity)}
+            busy={doneBusy}
           />
         );
       }
