@@ -9,7 +9,7 @@
  * The policy lives here, separate from IndexedDB, so it can be tested without a browser.
  */
 
-export type QueuedKind = 'bitacora' | 'acceso' | 'feedback';
+export type QueuedKind = 'bitacora' | 'acceso' | 'feedback' | 'consentimiento';
 
 export interface QueuedItem {
   /** Generated on the device. This is what makes a replayed flush safe. */
@@ -58,6 +58,8 @@ export class SyncQueue {
   readonly #newId: () => string;
   readonly #now: () => Date;
   #flushing = false;
+  /** Client ids of the batch currently on the wire. They can no longer be undone. */
+  #inFlight = new Set<string>();
 
   constructor(storage: QueueStorage, options: { newId?: () => string; now?: () => Date } = {}) {
     this.#storage = storage;
@@ -85,6 +87,17 @@ export class SyncQueue {
   /** What is still queued, so the UI can show it alongside what the server already has. */
   async snapshot(): Promise<QueuedItem[]> {
     return this.#storage.all();
+  }
+
+  /**
+   * Drops an item that has not left the device. Returns false when it already did — or is leaving
+   * right now — because then the server has it, and the log never takes anything back (D-024).
+   */
+  async discard(clientId: string): Promise<boolean> {
+    if (this.#inFlight.has(clientId)) return false;
+    const present = (await this.#storage.all()).some((item) => item.clientId === clientId);
+    if (present) await this.#storage.remove([clientId]);
+    return present;
   }
 
   /**
@@ -117,6 +130,12 @@ export class SyncQueue {
       }));
       const drop = exhausted.map((item) => item.clientId);
       let synced = 0;
+
+      // What each item looked like when it left. If the caregiver adds details while this batch
+      // is on the wire, the new version replaces it in storage under the same id, and must not be
+      // dropped when the old version's `ok` comes back.
+      const sentAs = new Map(batch.map((item) => [item.clientId, JSON.stringify(item.payload)]));
+      for (const item of batch) this.#inFlight.add(item.clientId);
 
       if (batch.length > 0) {
         let results: readonly ItemResult[];
@@ -155,10 +174,20 @@ export class SyncQueue {
         if (retry.length > 0) await this.#storage.bumpAttempts(retry);
       }
 
-      if (drop.length > 0) await this.#storage.remove(drop);
+      if (drop.length > 0) {
+        const current = new Map((await this.#storage.all()).map((item) => [item.clientId, item]));
+        const unchanged = drop.filter((id) => {
+          const sent = sentAs.get(id);
+          const now = current.get(id);
+          // Exhausted items were never sent; everything else is dropped only if it did not change.
+          return sent === undefined || now === undefined || JSON.stringify(now.payload) === sent;
+        });
+        if (unchanged.length > 0) await this.#storage.remove(unchanged);
+      }
 
       return { attempted: batch.length, synced, rejected, pending: await this.pendingCount(), skipped: false };
     } finally {
+      this.#inFlight.clear();
       this.#flushing = false;
     }
   }

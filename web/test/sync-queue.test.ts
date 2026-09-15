@@ -234,3 +234,52 @@ describe('flush', () => {
     assert.equal(report.synced, 1);
   });
 });
+
+describe('registro en un toque y detalles después (D-024)', () => {
+  test('conserva la versión nueva si llegó mientras la vieja se enviaba', async () => {
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x', minutes: null });
+    await q.flush(async (items) => {
+      // The caregiver taps "Guardar y volver" while the first version is on the wire.
+      await q.enqueue('bitacora', { clientId: 'x', minutes: 5 });
+      return items.map((item) => ({ clientId: item.clientId, status: 'ok' as const }));
+    });
+    assert.equal(storage.items.get('x')?.payload['minutes'], 5, 'la versión con detalles sigue en cola');
+  });
+
+  test('sí quita el ítem si nadie lo cambió durante el envío', async () => {
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x', minutes: null });
+    await q.flush(allOk);
+    assert.equal(storage.items.has('x'), false);
+  });
+
+  test('consentimiento es un tipo de ítem válido', async () => {
+    const id = await queue().enqueue('consentimiento', { clientId: 'c', notesAuthorized: false });
+    assert.equal(storage.items.get(id)?.kind, 'consentimiento');
+  });
+});
+
+describe('discard', () => {
+  test('quita un ítem que todavía no salió', async () => {
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x' });
+    assert.equal(await q.discard('x'), true);
+    assert.equal(await q.pendingCount(), 0);
+  });
+
+  test('no puede deshacer lo que ya se está enviando', async () => {
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x' });
+    let during: boolean | undefined;
+    await q.flush(async (items) => {
+      during = await q.discard('x');
+      return items.map((item) => ({ clientId: item.clientId, status: 'ok' as const }));
+    });
+    assert.equal(during, false);
+  });
+
+  test('devuelve false para algo que ya no está en la cola', async () => {
+    assert.equal(await queue().discard('nunca-existio'), false);
+  });
+});

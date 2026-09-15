@@ -18,6 +18,8 @@ export interface SyncState {
   enqueue: (kind: QueuedKind, payload: Record<string, unknown>) => Promise<string>;
   flush: () => Promise<void>;
   dismissRejected: () => void;
+  /** Undo for an entry still on the device. False when it already reached (or is reaching) the server. */
+  discard: (clientId: string) => Promise<boolean>;
 }
 
 /**
@@ -65,6 +67,15 @@ export function useSync(): SyncState {
     [queue, flush, refresh],
   );
 
+  const discard = useCallback(
+    async (clientId: string) => {
+      const dropped = await queue.discard(clientId);
+      await refresh();
+      return dropped;
+    },
+    [queue, refresh],
+  );
+
   useEffect(() => {
     const goOnline = () => {
       setOnline(true);
@@ -96,5 +107,6 @@ export function useSync(): SyncState {
     enqueue,
     flush,
     dismissRejected: () => setRejected([]),
+    discard,
   };
 }
