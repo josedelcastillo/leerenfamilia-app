@@ -8,7 +8,6 @@ export function RegistroRapido({
   kind,
   resourceId,
   week,
-  relation,
   initial,
   pendingIds,
   enqueue,
@@ -18,8 +17,6 @@ export function RegistroRapido({
   kind: ActivityKind;
   resourceId: string | null;
   week: number | null;
-  /** What this caregiver declared at activation. Preselects "who", but is only saved if they save. */
-  relation: DeclaredBy | null;
   /** The entry already logged by a one-tap button elsewhere, or null to ask first. */
   initial: Record<string, unknown> | null;
   pendingIds: ReadonlySet<string>;
@@ -28,7 +25,8 @@ export function RegistroRapido({
   onDone: () => void;
 }) {
   const [entry, setEntry] = useState<Record<string, unknown> | null>(initial);
-  const [who, setWho] = useState<DeclaredBy | null>(relation);
+  // Nothing preselected: "who" is saved only if the family chooses it, so L4 counts explicit answers.
+  const [who, setWho] = useState<DeclaredBy | null>(null);
   const [minutes, setMinutes] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);

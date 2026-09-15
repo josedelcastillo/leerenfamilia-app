@@ -542,8 +542,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   `backend/src/adapters/admin-store.ts`
 - Test: `backend/test/handlers/family-api.test.ts`, `backend/test/handlers/admin.test.ts`
 
-Esta relación es la respuesta a "¿Quién eres en casa?" en la pantalla 1. Sirve para preseleccionar el
-chip de "quién" y para que la ficha diga "principal (mamá)". No reemplaza `role`.
+Esta relación es la respuesta a "¿Quién eres en casa?" en la pantalla 1. Sirve para que la ficha diga
+"principal (mamá)". No preselecciona el chip de "quién" (D-024) ni reemplaza `role`.
 
 - [ ] **Step 1: Tests que fallan (inscripción)**
 

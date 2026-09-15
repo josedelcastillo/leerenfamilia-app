@@ -29,7 +29,7 @@ decidió, para que se pueda corregir.
 |---|---|---|---|
 | Número de celular (E.164) | Cuidador | Único canal del acompañamiento | `FAMILY#<id> / CAREGIVER#<msisdn>` |
 | Rol (principal / secundario) | Cuidador | Distinguir quién registra en la bitácora | Ídem |
-| Relación declarada (mamá / papá / otra) | Cuidador | Preseleccionar quién hizo la actividad. **Opcional y autodeclarada** | Ídem |
+| Relación declarada (mamá / papá / otra) | Cuidador | Que la ficha del gestor diga quién es cada cuidador ("principal (mamá)"). **Opcional y autodeclarada**; no preselecciona quién hizo la actividad (D-024) | Ídem |
 | Nombre o alias del bebé | **Menor** | Personalizar los mensajes | `FAMILY#<id> / BABY` |
 | Fecha de nacimiento | **Menor** | Edad del bebé; segmentación del análisis | Ídem |
 | Clínica de origen | Familia | Análisis del piloto | `FAMILY#<id> / META` |

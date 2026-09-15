@@ -96,9 +96,9 @@ Decisiones por defecto que tomé yo (anótelas en D-023…D-027 y corríjalas si
 
 - **Fuentes:** Literata 300/400/500 + Atkinson Hyperlegible 400/700, autoalojadas, unos 98 KB. El
   título del reporte usa 500 en vez de 600, para no cargar un cuarto peso.
-- **El primer toque guarda `declaredBy: null`.** El chip viene preseleccionado con la relación que el
-  cuidador declaró al inscribirse, pero solo se guarda si toca "Guardar y volver". Así no se atribuye
-  una lectura a nadie sin que lo diga.
+- **El primer toque guarda `declaredBy: null`, y ningún chip viene preseleccionado.** "Quién" solo se
+  guarda si la familia lo elige, así L4 cuenta solo respuestas explícitas y no se atribuye una lectura
+  a nadie sin que lo diga.
 - **Se pierde la fecha retroactiva.** El registro en un toque es "hoy". Se deja escrito en D-024.
 - **El reporte es del lado del cliente.** "Descargar PDF" usa `window.print()` con CSS de impresión.
   "Enviar por correo" abre un `mailto:` sin destinatario. Así no hace falta SES ni un recurso nuevo.

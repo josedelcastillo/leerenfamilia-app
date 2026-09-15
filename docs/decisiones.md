@@ -924,9 +924,10 @@ lo decide el servidor a partir del token firmado. `declaredBy` (`mama`, `papa` u
 hizo la actividad según la familia, y es autodeclarado y opcional. Una abuela que lee con el celular de
 la madre queda como `loggedBy: principal`, `declaredBy: otra`.
 
-**El primer toque guarda `declaredBy: null`.** En la pantalla de detalles, el chip viene preseleccionado
-con la relación que el cuidador declaró al inscribirse ("¿Quién eres en casa?"), pero solo se guarda si
-la familia toca "Guardar y volver". Así no se le atribuye una lectura a nadie sin que lo diga.
+**El primer toque guarda `declaredBy: null`, y ningún chip viene preseleccionado.** En la pantalla de
+detalles, "quién" solo se guarda si la familia elige un chip. Así L4 cuenta solo respuestas explícitas y
+no se le atribuye una lectura a nadie sin que lo diga: con un chip preseleccionado, quien solo agregaba
+los minutos le atribuía la actividad al cuidador que se inscribió.
 
 **Los detalles reescriben la misma entrada.** Llevan el mismo `clientId` y la misma fecha que el primer
 toque, así que caen en la misma clave de DynamoDB (`LOG#<fecha>#<clientId>`) y la sobrescriben. No hay

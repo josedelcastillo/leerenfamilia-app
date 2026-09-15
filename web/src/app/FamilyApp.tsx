@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import '../shared/styles.css';
-import { api, type Activity, type ActivityKind, type DeclaredBy } from '../shared/api.ts';
+import type { Activity, ActivityKind } from '../shared/api.ts';
 import { captureTokenFromUrl } from '../shared/token.ts';
 import { useSync } from '../shared/useSync.ts';
 import { Actividad } from './Actividad.tsx';
@@ -54,7 +54,6 @@ export default function FamilyApp() {
   // Runs once on load: pulls the token out of the WhatsApp deep link and clears it from the URL.
   const [token, setTokenState] = useState<string | null>(() => captureTokenFromUrl());
   const [tab, setTab] = useState<Tab>('semana');
-  const [relation, setRelation] = useState<DeclaredBy | null>(null);
   const [doneBusy, setDoneBusy] = useState(false);
   // `doneBusy` drives the disabled state but only takes effect on the next render; a very fast
   // double tap on "Ya la ..." can land both calls before that happens. This ref blocks the second
@@ -62,11 +61,6 @@ export default function FamilyApp() {
   const doneRunning = useRef(false);
   const sync = useSync();
   const contenido = useContenido();
-
-  useEffect(() => {
-    if (token === null) return;
-    api.listLog().then((response) => setRelation(response.relation)).catch(() => undefined);
-  }, [token]);
 
   // The deep link's `v` is a one-shot instruction; left in the URL, every reload would reopen it.
   useEffect(() => {
@@ -172,7 +166,6 @@ export default function FamilyApp() {
           kind={vista.kind}
           resourceId={vista.resourceId}
           week={vista.week}
-          relation={relation}
           initial={vista.initial}
           pendingIds={pendingIds}
           enqueue={sync.enqueue}

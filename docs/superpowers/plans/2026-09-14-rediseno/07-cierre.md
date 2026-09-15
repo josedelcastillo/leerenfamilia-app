@@ -34,8 +34,8 @@ descartadas y consecuencias. El contenido mínimo de cada una:
   No hay valor por defecto: inventar una duración corrompería L2 sin que nadie lo notara.
 - `declaredBy` (`mama`/`papa`/`otra`) es lo que dice la familia; `loggedBy` sigue saliendo del token. Son
   preguntas distintas: de quién es el teléfono y quién leyó.
-- El primer toque guarda `declaredBy: null`; el chip viene preseleccionado con la relación de la
-  activación, pero solo se guarda si la familia toca "Guardar y volver".
+- El primer toque guarda `declaredBy: null` y ningún chip viene preseleccionado: "quién" solo se guarda
+  si la familia lo elige, así L4 cuenta solo respuestas explícitas.
 - Los detalles reescriben la misma entrada (mismo `clientId` y fecha, luego la misma clave de DynamoDB).
   La cola solo borra un ítem enviado si su payload no cambió durante el envío.
 - "Deshacer" solo mientras el ítem no salió del teléfono. Lo enviado no se borra: "nada se borra ni
