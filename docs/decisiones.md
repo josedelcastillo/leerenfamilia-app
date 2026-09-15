@@ -788,3 +788,338 @@ que el color nunca es lo único que las distingue.
 **Lo que sigue pendiente.** Los íconos de la PWA son todavía el libro genérico de relleno, ahora sobre
 el coral correcto. Hace falta el logo **en vector**: un PNG no escala a los tamaños que pide un
 launcher. Sigue listado como bloqueante en el runbook.
+
+---
+
+## D-023 — Re-vestido "Nacidos para Leer": tokens nuevos, dos fuentes autoalojadas, las pestañas se quedan
+
+**Fecha:** 2026-09-14 · **Estado:** vigente · **Corrige:** D-022 (paleta y "sin webfont")
+
+### Contexto
+
+Leer en Familia encargó a Claude Design un diseño completo de las dos superficies, familia y gestor. El
+paquete que entregó está en `docs/diseno/handoff-2026-09/`: un prototipo navegable y un README con la
+especificación. Trae una identidad más clara que la de D-022 —papel blanco, una superficie lila, el coral
+del logotipo y el morado de los libros— y dos tipografías.
+
+El README es la especificación escrita. Donde el prototipo y el README no coinciden, manda el README.
+
+### Decisión
+
+**Los tokens.** El `:root` de D-022 se reemplaza entero. La regla que lo atraviesa sigue siendo la misma:
+los colores de la identidad son **rellenos**, y para texto hay versiones profundizadas.
+
+| Token | Valor | Para qué | Contraste medido |
+|---|---|---|---|
+| `--coral` | `#DA5F4B` | Relleno: botón principal, ilustración | 3.67:1 sobre blanco — **nunca texto** |
+| `--morado` | `#915EB1` | Relleno | 4.73:1 sobre blanco — **nunca texto**, por diseño |
+| `--coral-ink` | `#2B1409` | La tinta que va encima de un botón coral | 4.74:1 sobre `--coral` |
+| `--brand` | `#A8402C` | El único coral permitido bajo texto: enlaces, pestaña activa | 6.11:1 |
+| `--brand-alt` | `#C24A38` | Cifras grandes y texto de 19px o más | 4.85:1 |
+| `--accent` | `#6E4E9B` | Texto morado y anillo de foco | 6.51:1 |
+| `--morado-text` | `#7B4C99` | Etiquetas moradas | 6.30:1 |
+| `--paper` / `--surface` | `#FFFFFF` / `#F7F3FA` | Papel blanco y superficie lila | — |
+
+Todas las cifras son las que imprime `web/scripts/check-contrast.mjs`, que corre dentro de `npm test`.
+
+**Dos cifras del handoff estaban mal, y una de ellas cambia cómo se hace cumplir la regla.**
+
+- El README dice que `--morado` mide 3.4:1 sobre blanco. Mide **4.73:1**: técnicamente pasa AA. Que el
+  morado no toque texto es entonces una decisión de diseño, no una exigencia de contraste, y un umbral
+  no la puede vigilar. Por eso `check-contrast.mjs` tiene ahora dos partes: los umbrales de siempre y un
+  **lint de uso** que falla si encuentra `color: var(--coral)` o `color: var(--morado)` en un CSS o en un
+  estilo inline de un componente.
+- El README dice que `--coral-ink` sobre `--coral` da 6.1:1. Da **4.74:1**. Pasa AA de todas formas.
+
+**Dos desvíos deliberados del handoff:**
+
+- El check de "registrado" es **blanco sobre `--ok`** (5.05:1), no `--coral-ink` como proponía el
+  handoff: la tinta oscura sobre ese verde mide 3.44:1 y no llega a AA.
+- Las opciones seleccionables (`.opcion`) marcan el foco con `:has()`. Para los navegadores que todavía
+  no lo soportan —celulares viejos, justamente los de este piloto— hay un respaldo con `:focus-within`:
+  el foco nunca puede quedar invisible.
+
+**Las fuentes.** Literata (300, 400 y 500) para leer y Atkinson Hyperlegible (400 y 700) para la
+interfaz. Son cinco archivos WOFF2, unos 98 KB en total, **guardados en el repositorio**
+(`web/src/shared/fonts/`, con sus licencias al lado) y precacheados por el service worker. No son
+dependencias de npm ni se piden a un servidor de fuentes.
+
+Esto revierte el "sin webfont" de D-022. El motivo es la lectura prolongada: la familia lee el contenido
+de la semana en voz alta, con el bebé en brazos, y Literata está hecha para eso. Atkinson Hyperlegible
+está diseñada para baja visión y distingue bien las letras que se confunden. El costo de la descarga se
+paga una sola vez, al instalar, y después la app funciona sin red igual que antes.
+
+Si el peso resultara un problema en los celulares del piloto, la degradación prevista es **Literata solo
+para el contenido y `system-ui` para el resto. Nunca una serif del sistema**: Georgia o Times en un
+Android barato se leen peor que la sans del sistema.
+
+**Las tres pestañas se quedan.** El brief pedía cero pestañas. Sin ellas, la pantalla de Mensajes queda
+sin forma de llegar, y es el canal por el que una familia hace una pregunta. Quedan con 56px de alto y
+sin emoji.
+
+**La activación conserva los campos de inscripción.** El prototipo muestra una pantalla 1 sin nombre del
+bebé, fecha de nacimiento ni celular, pero el registro por QR los necesita. Se mantienen con la piel
+nueva, y se agrega el selector "¿Quién eres en casa?" (ver D-024). El texto de consentimiento actual se
+conserva: es más completo que el del prototipo y sigue marcado como borrador.
+
+**Los PNG de marca se sirven reducidos** a dos veces el tamaño con que se ven en pantalla. Reducir no es
+recortar ni recolorear, y ahorra unos 700 KB de precache en cada celular. Los originales quedan en
+`docs/diseno/`.
+
+### Lo que no se copió del prototipo
+
+- **El contenido del programa** (regla 11): el titular de la semana, los nombres de cuento y canción, las
+  instrucciones de la actividad. Todo sale del API, que hoy es placeholder.
+- **Frases que serían falsas delante de una familia** (hallazgo 5 del índice del plan):
+  - pantalla 6, "si lo desactivas, tus notas se quedan solo en tu teléfono": las notas se guardan
+    siempre y se filtran en lectura (regla 8);
+  - pantalla 6, "qué guardamos": omitía el nombre y la fecha de nacimiento del bebé;
+  - pantalla 12, "se genera con los datos del lunes a las 7 a.m.": no existe tal proceso.
+
+### Alternativas descartadas
+
+- **Oscurecer el coral hasta que pase AA.** Es perder la identidad para ganar un número; el lint lo
+  impide igual que en D-022.
+- **Pedir las fuentes a Google Fonts.** Sería una petición a un tercero en cada carga (regla 12) y no
+  funcionaría sin red la primera vez.
+- **Una serif del sistema en vez de Literata.** Descartada arriba.
+
+### Consecuencias
+
+- El CSS de la versión anterior sigue en `styles.css`, en un bloque marcado como heredado, hasta que la
+  limpieza del plan de re-vestido lo borre.
+- La regla 10 de `CLAUDE.md` cubre ahora `--coral` y `--morado`.
+- Los íconos de la PWA siguen saliendo del lockup PNG y a 32px no se leen. El logo en vector sigue
+  pendiente (runbook).
+
+---
+
+## D-024 — Registro en un toque: minutos opcionales y `declaredBy` autodeclarado
+
+**Fecha:** 2026-09-14 · **Estado:** vigente
+
+### Contexto
+
+El diseño nuevo cambia cómo se registra una actividad. Antes era un formulario: tipo, fecha, minutos,
+nota. Ahora la familia toca "Ya la leímos" y listo; los detalles —cuánto duró, quién lo hizo, una nota—
+se completan después si quiere, o nunca.
+
+Es la decisión correcta para una madre con una mano libre, pero choca con dos cosas del modelo: los
+minutos eran obligatorios, y no había forma de decir quién hizo la actividad.
+
+### Decisión
+
+**Los minutos son opcionales.** `minutes` admite `null`, que quiere decir "no reportado". L2 suma solo lo
+reportado, y `entradas_con_minutos` dice cuántas entradas lo reportaron, para que quien lea el
+indicador sepa sobre qué base está.
+
+No hay valor por defecto. Poner diez minutos a cada toque inventaría una duración y corrompería L2 sin
+que nadie lo notara: el número se vería razonable y sería falso.
+
+**`declaredBy` es lo que dice la familia; `loggedBy` sigue saliendo del token.** Son dos preguntas
+distintas. `loggedBy` responde de quién es el teléfono con que se registró (principal o secundario), y
+lo decide el servidor a partir del token firmado. `declaredBy` (`mama`, `papa` u `otra`) responde quién
+hizo la actividad según la familia, y es autodeclarado y opcional. Una abuela que lee con el celular de
+la madre queda como `loggedBy: principal`, `declaredBy: otra`.
+
+**El primer toque guarda `declaredBy: null`.** En la pantalla de detalles, el chip viene preseleccionado
+con la relación que el cuidador declaró al inscribirse ("¿Quién eres en casa?"), pero solo se guarda si
+la familia toca "Guardar y volver". Así no se le atribuye una lectura a nadie sin que lo diga.
+
+**Los detalles reescriben la misma entrada.** Llevan el mismo `clientId` y la misma fecha que el primer
+toque, así que caen en la misma clave de DynamoDB (`LOG#<fecha>#<clientId>`) y la sobrescriben. No hay
+entradas duplicadas ni una segunda escritura que conciliar.
+
+### Tres defensas que el diseño hizo necesarias
+
+- **La carrera de la cola.** Si los detalles se guardan justo mientras el primer toque se está enviando,
+  la versión anterior de la cola borraba el ítem por su `clientId` al recibir la respuesta, y con él la
+  versión nueva. Ahora la cola solo borra un ítem enviado si su contenido no cambió durante el envío; si
+  cambió, lo deja y lo manda en la próxima sincronización.
+- **El doble toque.** Los botones de un toque se bloquean mientras la escritura está en curso, con una
+  guarda que actúa antes del siguiente render. Un doble toque rápido registra una sola actividad.
+- **El borde del servidor ya no convierte tipos.** La Lambda de tracking pasa `minutes` y `declaredBy`
+  tal como llegan y deja que el dominio los valide. Antes, convertir con `Number()` habría transformado
+  `"10"` o `true` en una duración. Un valor malformado ahora se rechaza en vez de guardarse disfrazado.
+
+### Lo que se pierde
+
+- **"Deshacer" solo mientras el ítem no salió del teléfono.** Lo que ya se envió no se borra: es la regla
+  de D-021, "nada se borra ni retrocede".
+- **La fecha retroactiva del formulario anterior.** El registro en un toque es de hoy. Si el piloto lo
+  necesita, vuelve como un enlace "¿fue otro día?" en la pantalla de detalles.
+
+### Consecuencias
+
+- `bitacora.csv` agrega la columna `declarado_por`; `familias.csv` y `resumen.csv` agregan
+  `entradas_con_minutos`.
+- `indicadores.md` agrega L4, que cuenta por `declarado_por`, y aclara que L2 es solo lo reportado.
+
+---
+
+## D-025 — El consentimiento de notas se cambia desde la PWA, sin Lambda nueva
+
+**Fecha:** 2026-09-14 · **Estado:** vigente
+
+### Contexto
+
+Hasta ahora, la autorización para que el equipo lea las notas se daba una sola vez, en la inscripción, y
+no había forma de cambiarla. La pantalla 6 del diseño ("Tus datos") pone un interruptor. Revocar un
+consentimiento tiene que ser tan fácil como darlo, así que la pantalla es correcta; lo que hacía falta
+era un camino en el backend.
+
+### Decisión
+
+**Un tipo de ítem nuevo en la cola que ya existe.** El interruptor encola un ítem `consentimiento` en la
+misma cola offline que la bitácora, y lo procesa la misma Lambda de tracking. Siguen siendo siete
+Lambdas (regla 2), y el cambio funciona sin señal igual que un registro.
+
+La Lambda hace dos escrituras:
+
+1. **Un registro de prueba** en la partición de la familia, al lado del de la inscripción:
+   `CONSENT#<hora del dispositivo>#<clientId>`, con el canal (`pwa`), la versión del texto, quién lo
+   cambió, el valor nuevo, la hora del dispositivo y la hora efectiva (`acceptedAt`).
+2. **El cambio del permiso** (`freeTextNotesAuthorized`) en el registro de la familia, pero solo si
+   corresponde (ver abajo).
+
+**Gana el cambio más reciente según su propia hora, no el último en llegar.** La cola offline no
+preserva el orden, y una familia con dos teléfonos puede enviar cambios cruzados: el padre revoca sin
+señal a las 9, la madre autoriza con señal a las 10, y a las 11 el teléfono del padre sincroniza. Si
+ganara el último en llegar, quedaría revocado contra lo que la familia decidió al final.
+
+Por eso el registro de la familia guarda `notesConsentAt`, la hora del cambio vigente, y el permiso solo
+se mueve con un cambio más nuevo. Se inicializa con la hora de la inscripción, que es el primer cambio.
+Un cambio más viejo deja su registro de prueba, pero no toca el permiso.
+
+**En empate, gana la revocación.** Una revocación se aplica si su hora es igual o posterior a la vigente;
+una autorización, solo si es estrictamente posterior. Ante la duda, el equipo deja de ver.
+
+**La hora del dispositivo se recorta a la de recepción.** Un teléfono con el reloj adelantado ganaría
+todas las comparaciones siguientes. La hora efectiva nunca es posterior al momento en que el servidor
+recibió el cambio.
+
+**Un teléfono con el reloj muy atrasado** envía cambios con una hora anterior a la inscripción: quedan
+como prueba, pero no cambian el permiso. La familia no queda engañada, porque la pantalla de privacidad
+muestra el valor del servidor después de sincronizar: si el interruptor vuelve a su posición anterior,
+lo ve.
+
+**Un reintento no duplica la prueba.** La clave del registro usa la hora del dispositivo, que un
+reintento no cambia, y no la de recepción, que sí. Reenviar la cola sobrescribe el mismo registro.
+
+**Revocar oculta también las notas ya enviadas**, sin código adicional: el filtro de las notas se
+aplica en lectura (regla 8), así que en cuanto el permiso cambia, el equipo deja de ver todas.
+
+### Alternativas descartadas
+
+- **Un endpoint nuevo.** Sería una octava Lambda o una ruta fuera de la cola, y el cambio dejaría de
+  funcionar sin señal.
+- **Gana el último en llegar.** Descartado arriba: con cola offline y dos teléfonos da el resultado
+  equivocado.
+
+### Consecuencias
+
+- El texto de la pantalla 6 es un borrador pendiente de revisión legal, igual que el del consentimiento.
+- `tratamiento-datos.md` describe el cambio desde la PWA y su registro de prueba.
+
+---
+
+## D-026 — Tablero, reporte y auditoría con los datos que existen
+
+**Fecha:** 2026-09-14 · **Estado:** vigente
+
+### Contexto
+
+El diseño del gestor agrega tres pantallas: un tablero del piloto, un reporte semanal para el hospital y
+la auditoría de accesos. Algunas de sus tarjetas muestran datos que la plataforma no tiene: kits
+entregados y familias sensibilizadas en consulta.
+
+### Decisión
+
+**Dos rutas nuevas dentro del handler de gestor**, `GET /api/gestor/tablero` y `GET /api/gestor/auditoria`.
+Sin Lambda nueva (regla 2).
+
+**La participación por semana usa `cohortIndicators`**, la misma definición que `resumen.csv`. El tablero
+y el resumen exportado no pueden decir cosas distintas.
+
+**Kits y sensibilizadas no están en el modelo, y sus tarjetas lo dicen** en vez de mostrar un cero o un
+número inventado. Agregarlos es alcance aparte: una entidad nueva y una forma de que el gestor los
+cargue.
+
+**El tablero solo muestra agregados**: sin texto libre y sin nombres. Por eso no necesita verificación
+de consentimiento ni deja entrada de auditoría, igual que el listado de familias.
+
+**Quién cuenta en cada cifra:**
+
+- Las familias **de baja** cuentan como registradas y en el denominador del consentimiento, pero no en
+  "sin registros en 7 días". Se fueron del programa: no son trabajo pendiente del equipo.
+- "Sin registros en 7 días" cuenta además solo familias con al menos una semana en el programa. Una
+  familia que entró ayer no está atrasada.
+- Las familias suprimidas no llegan al tablero: sus datos ya no existen.
+
+**El reporte se arma en el navegador.** No hay SES ni una dirección del hospital configurada, así que:
+
+- "Descargar PDF" usa `window.print()` con estilos de impresión;
+- "Enviar por correo" abre un `mailto:` sin destinatario. El cuerpo se recorta para que el enlace no
+  pase de unos 1 900 caracteres (`MAILTO_MAX`), el largo a partir del cual algunos clientes de correo lo
+  truncan o no lo abren;
+- "Copiar resumen como texto" pone el texto completo en el portapapeles, que es el camino cuando el
+  correo se queda corto.
+
+Las observaciones que escribe el gestor no se guardan en ningún lado.
+
+**"Exportar datos" se conserva como sexto ítem de la barra lateral**, aunque el diseño no lo trae:
+`bitacora.csv` es el archivo del evaluador y no puede perder su pantalla.
+
+**La auditoría en pantalla muestra dos meses.** El registro completo sigue en `auditoria.csv`, y cada
+entrada vence por TTL a los 365 días. Los dos meses se eligen por **mes UTC**, el mismo reloj con que se
+particiona la auditoría (`AUDIT#<aaaa-mm>`), no por el día de Lima. Si se usara el día de Lima, se
+perderían las entradas escritas la última noche de un mes en Lima, que en UTC ya son del mes siguiente.
+
+**Las familias se identifican con un código corto**, `F-` y los seis primeros caracteres hexadecimales
+de su id (por ejemplo `F-3A9C1E`), en el listado, la ficha y la auditoría. Con 50 familias, la
+probabilidad de que dos compartan código es de alrededor de 0.007%; con cuatro caracteres habría sido
+1.8%.
+
+### Consecuencias
+
+- `indicadores.md` lista qué indicador alimenta cada tarjeta del tablero.
+- Un stack sin el deploy de esta rama responde 404 a las rutas nuevas y el tablero queda en blanco
+  (runbook, diagnóstico).
+
+---
+
+## D-027 — El pedido de supresión, transitorio, va por la bandeja
+
+**Fecha:** 2026-09-14 · **Estado:** vigente, **transitoria**
+
+### Contexto
+
+La Ley 29733 da a la familia el derecho a pedir que se borren sus datos. El endpoint de supresión no
+existe, y hasta ahora la familia no tenía dónde pedirlo: tendría que haber sabido escribirle a un
+gestor por WhatsApp.
+
+### Decisión
+
+La pantalla "Tus datos" tiene un botón **"Pedir que borren mis datos"**. Pide una confirmación en dos
+pasos —explica qué se va a borrar, y recién el segundo botón envía— y está protegido contra el doble
+toque.
+
+Al confirmar, encola un `feedback` de tipo `pedido` con un texto fijo:
+
+> Pido que borren mis datos y los de mi bebé del programa Nacidos para Leer.
+
+Llega a la bandeja del gestor como cualquier otro mensaje, funciona sin señal, y un gestor lo atiende a
+mano con el procedimiento del runbook ("Baja y supresión de datos").
+
+### Lo que esto no resuelve
+
+**La supresión sigue siendo una obligación legal pendiente.** Esto no borra nada: solo evita que la
+familia no tenga dónde pedirlo. El endpoint que borra la partición completa sigue sin existir, y sigue
+en la lista de bloqueantes del runbook.
+
+### Alternativas descartadas
+
+- **Esperar al endpoint.** Mientras tanto la familia no tendría ningún camino visible para ejercer un
+  derecho que ya tiene.
+- **Un botón que borre directamente.** Sin el endpoint no hay qué llamar, y borrar sin que un gestor
+  confirme la identidad arriesga borrar la familia equivocada.
