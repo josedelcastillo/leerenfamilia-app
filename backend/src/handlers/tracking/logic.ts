@@ -117,7 +117,10 @@ export interface OwnLogResponse {
   readonly entries: readonly LogEntry[];
   /** Whether the team may read the notes, so the privacy screen shows the real state (D-025). */
   readonly notesAuthorized: boolean;
-  /** What the caregiver on this phone declared at activation; preselects "who did it". */
+  /**
+   * What the caregiver on this phone declared at activation. The family app no longer pre-selects
+   * "who did it" with it (D-024) and nothing in it reads this today; the manager's detail shows it.
+   */
   readonly relation: DeclaredBy | null;
 }
 
