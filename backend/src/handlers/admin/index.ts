@@ -12,9 +12,11 @@ import {
   buildFamilyRows,
   buildInbox,
   closeFeedbackAs,
+  listRecentAudit,
   openFamilyDetail,
   replyToFeedback,
 } from './logic.ts';
+import { buildDashboard } from './dashboard.ts';
 import { buildCsv, isDataset } from './export.ts';
 import { gestorFromClaims } from './claims.ts';
 import { assertIsGestor } from './logic.ts';
@@ -142,6 +144,16 @@ export async function handler(
         feedbackId: String(body['feedbackId'] ?? ''),
       }, now);
       return json(200, { feedback: closed });
+    }
+
+    if (path[0] === 'tablero' && method === 'GET') {
+      // Aggregates only (D-026): no free text, so no consent check and no audit entry, like the list.
+      const families = await store.listFamilies(program.programId);
+      return json(200, buildDashboard(families, program, today));
+    }
+
+    if (path[0] === 'auditoria' && method === 'GET') {
+      return json(200, { entradas: await listRecentAudit(store, gestor, now) });
     }
 
     return json(404, { error: 'ruta_no_encontrada' });
