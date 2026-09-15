@@ -4,6 +4,7 @@ import { fechaLarga, shortId } from './tiempo.ts';
 const KIND: Record<string, string> = { lectura: 'Lectura', cancion: 'Canción', juego: 'Juego', conversacion: 'Conversación' };
 const ROLE: Record<string, string> = { principal: 'Principal', secundario: 'Secundario' };
 const RELATION: Record<string, string> = { mama: 'mamá', papa: 'papá', otra: 'otra persona' };
+const STATUS: Record<string, string> = { activa: 'Activa', baja: 'De baja', suprimida: 'Suprimida' };
 
 type Entry = FamilyDetail['entries'][number];
 
@@ -38,12 +39,12 @@ export function Ficha({ detail }: { detail: FamilyDetail }) {
       <div className="g-ficha__cuerpo">
         <dl className="g-tarjeta g-datos">
           <div><dt>Bebé</dt><dd>{detail.babyName || '—'}</dd></div>
-          <div><dt>Estado</dt><dd>{detail.status}</dd></div>
+          <div><dt>Estado</dt><dd>{STATUS[detail.status] ?? detail.status}</dd></div>
           <div>
             <dt>Cuidadores</dt>
             <dd>
               {detail.caregivers
-                .map((c) => `${ROLE[c.role] ?? c.role}${c.relation !== null ? ` (${RELATION[c.relation]})` : ''}${c.optIn ? '' : ', dado de baja'}`)
+                .map((c) => `${ROLE[c.role] ?? c.role}${c.relation !== null ? ` (${RELATION[c.relation] ?? c.relation})` : ''}${c.optIn ? '' : ', dado de baja'}`)
                 .join(' · ')}
             </dd>
           </div>

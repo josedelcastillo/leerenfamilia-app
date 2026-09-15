@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { gestorApi, type InboxItem } from './api.ts';
 import { Cabecera } from './Cabecera.tsx';
-import { daysSince, fechaLarga, limaToday } from './tiempo.ts';
+import { daysSince, fechaLarga, limaToday, shortId } from './tiempo.ts';
 
 const FILTERS = [
   { value: 'abierto', label: 'Sin responder' },
@@ -18,15 +18,22 @@ export function Bandeja() {
   const [filter, setFilter] = useState<string>('abierto');
   const [items, setItems] = useState<InboxItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [outcome, setOutcome] = useState<{ text: string; isError: boolean } | null>(null);
 
-  const load = useCallback((estado: string) => {
-    setItems(null);
+  // The initial/filter load shows "Cargando…"; a reload after answering or closing a message keeps
+  // the current list on screen so the list does not blank out (and every Mensaje unmount) under it.
+  const load = useCallback((estado: string, opts: { reset: boolean }) => {
+    if (opts.reset) setItems(null);
+    setError(null);
     gestorApi.bandeja(estado)
       .then((response) => setItems(response.mensajes))
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Error'));
   }, []);
 
-  useEffect(() => load(filter), [filter, load]);
+  useEffect(() => {
+    setOutcome(null);
+    load(filter, { reset: true });
+  }, [filter, load]);
 
   return (
     <>
@@ -42,19 +49,32 @@ export function Bandeja() {
       </Cabecera>
       <div className="g-cuerpo">
         {error !== null && <p className="g-error" role="alert">{error}</p>}
+        {outcome !== null && (
+          <p className={outcome.isError ? 'g-error' : 'g-aviso-ok'} role={outcome.isError ? 'alert' : 'status'}>
+            {outcome.text}
+          </p>
+        )}
         {items === null && error === null && <p className="g-faint">Cargando…</p>}
         {items !== null && items.length === 0 && <p className="g-faint">Nada pendiente aquí.</p>}
-        {items?.map((item) => <Mensaje key={item.feedback.id} item={item} onChanged={() => load(filter)} />)}
+        {items?.map((item) => (
+          <Mensaje key={item.feedback.id} item={item}
+                   onChanged={() => load(filter, { reset: false })}
+                   onOutcome={(text, isError = false) => setOutcome({ text, isError })} />
+        ))}
         <p className="g-faint">Las respuestas no se editan: cada una se agrega a la anterior y la familia ve las dos.</p>
       </div>
     </>
   );
 }
 
-function Mensaje({ item, onChanged }: { item: InboxItem; onChanged: () => void }) {
+function Mensaje({ item, onChanged, onOutcome }: {
+  item: InboxItem;
+  onChanged: () => void;
+  onOutcome: (message: string, isError?: boolean) => void;
+}) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
   const today = limaToday(new Date());
   const open = item.feedback.status === 'abierto';
   const age = daysSince(item.feedback.createdAt, today);
@@ -62,19 +82,30 @@ function Mensaje({ item, onChanged }: { item: InboxItem; onChanged: () => void }
   async function reply(event: React.FormEvent) {
     event.preventDefault();
     setBusy(true);
-    setNotice(null);
     try {
       const outcome = await gestorApi.responder(item.familyId, item.feedback.id, text);
       // The reply is saved even when the notification fails; the manager needs to know which happened.
-      setNotice(outcome.notified
+      onOutcome(outcome.notified
         ? `Respondido y avisado por WhatsApp (${outcome.channel}).`
         : `Respuesta guardada, pero no se pudo avisar por WhatsApp: ${outcome.reason ?? 'sin detalle'}.`);
       setText('');
       onChanged();
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : 'Error');
+      onOutcome(cause instanceof Error ? cause.message : 'Error', true);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function close() {
+    setClosing(true);
+    try {
+      await gestorApi.cerrar(item.familyId, item.feedback.id);
+      onChanged();
+    } catch (cause) {
+      onOutcome(cause instanceof Error ? cause.message : 'No se pudo cerrar', true);
+    } finally {
+      setClosing(false);
     }
   }
 
@@ -82,7 +113,7 @@ function Mensaje({ item, onChanged }: { item: InboxItem; onChanged: () => void }
     <article className={open ? 'g-mensaje g-mensaje--abierto' : 'g-mensaje'}>
       <div className="g-mensaje__cabecera">
         <div className="g-mensaje__quien">
-          <strong>{item.babyName || item.familyId}</strong>
+          <strong>{item.babyName || shortId(item.familyId)}</strong>
           <span className={item.feedback.channel === 'whatsapp' ? 'g-pill g-pill--canal' : 'g-pill'}>
             {item.feedback.channel === 'whatsapp' ? 'WhatsApp' : 'App'}
           </span>
@@ -96,7 +127,7 @@ function Mensaje({ item, onChanged }: { item: InboxItem; onChanged: () => void }
 
       {item.feedback.replies.map((entry, index) => (
         <div key={index} className="g-respuesta">
-          Respondido el {fechaLarga(entry.at.slice(0, 10))}: {entry.text}
+          Respondido el {fechaLarga(limaToday(new Date(entry.at)))}: {entry.text}
         </div>
       ))}
 
@@ -109,15 +140,13 @@ function Mensaje({ item, onChanged }: { item: InboxItem; onChanged: () => void }
                     placeholder={item.feedback.replies.length === 0 ? 'Tu respuesta' : 'Agregar otra respuesta'}
                     onChange={(event) => setText(event.target.value)} />
           <div className="g-botones">
-            <button type="submit" className="g-btn g-btn--primario g-btn--chico" disabled={busy || text.trim() === ''}>Responder</button>
-            <button type="button" className="g-btn g-btn--chico" disabled={busy}
-                    onClick={() => void gestorApi.cerrar(item.familyId, item.feedback.id).then(onChanged)}>
-              Cerrar
+            <button type="submit" className="g-btn g-btn--primario g-btn--chico" disabled={busy || closing || text.trim() === ''}>Responder</button>
+            <button type="button" className="g-btn g-btn--chico" disabled={busy || closing} onClick={() => void close()}>
+              {closing ? 'Cerrando…' : 'Cerrar'}
             </button>
           </div>
         </form>
       )}
-      {notice !== null && <p className="g-faint" role="status">{notice}</p>}
     </article>
   );
 }

@@ -21,6 +21,7 @@ export function Reporte() {
   const [error, setError] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
   const generated = new Date();
 
   useEffect(() => {
@@ -29,14 +30,21 @@ export function Reporte() {
 
   async function copy() {
     if (data === null) return;
-    await navigator.clipboard.writeText(reportPlainText(data, observaciones, generated));
-    setCopied(true);
+    setCopyError(null);
+    try {
+      if (!navigator.clipboard) throw new Error('Sin portapapeles');
+      await navigator.clipboard.writeText(reportPlainText(data, observaciones, generated));
+      setCopied(true);
+    } catch {
+      setCopied(false);
+      setCopyError('No se pudo copiar. Seleccione el texto del reporte y cópielo a mano.');
+    }
   }
 
   return (
     <>
       <Cabecera titulo="Reporte semanal" />
-      {error !== null && <div className="g-cuerpo"><p className="g-error">{error}</p></div>}
+      {error !== null && <div className="g-cuerpo"><p className="g-error" role="alert">{error}</p></div>}
       {data === null && error === null && <div className="g-cuerpo"><p className="g-faint">Cargando…</p></div>}
       {data !== null && (
         <div className="g-reporte">
@@ -94,6 +102,7 @@ export function Reporte() {
               </a>
               <button type="button" className="g-btn" onClick={() => void copy()}>Copiar resumen como texto</button>
               {copied && <p className="g-aviso-ok" role="status">Copiado.</p>}
+              {copyError !== null && <p className="g-error" role="alert">{copyError}</p>}
             </section>
             <section className="g-tarjeta">
               <h2 className="g-tarjeta__titulo">Qué incluye</h2>

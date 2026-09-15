@@ -118,4 +118,9 @@ describe('reporte semanal', () => {
     assert.ok(href.length <= MAILTO_MAX, `href.length fue ${href.length}`);
     assert.match(decodeURIComponent(href), /Resumen recortado: use "Copiar resumen como texto" para el texto completo\./);
   });
+  test('el pie de página usa la fecha de Lima, no la UTC', () => {
+    // 2026-09-10T01:00:00.000Z is 2026-09-09 20:00 in Lima; the report must not say "10 de septiembre".
+    const text = reportPlainText(dashboard(), '', new Date('2026-09-10T01:00:00.000Z'));
+    assert.match(text, /Generado el 9 de septiembre de 2026/);
+  });
 });

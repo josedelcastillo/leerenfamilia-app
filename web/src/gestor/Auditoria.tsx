@@ -9,6 +9,7 @@ import { limaToday } from './tiempo.ts';
 export function Auditoria() {
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const today = limaToday(new Date());
 
   useEffect(() => {
@@ -17,12 +18,23 @@ export function Auditoria() {
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'Error'));
   }, []);
 
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    try {
+      await descargarCsv('auditoria');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo exportar');
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <>
       <Cabecera titulo="Auditoría de accesos">
-        <button type="button" className="g-btn g-btn--primario"
-                onClick={() => void descargarCsv('auditoria').catch((c: unknown) => setError(c instanceof Error ? c.message : 'No se pudo exportar'))}>
-          Exportar CSV
+        <button type="button" className="g-btn g-btn--primario" disabled={exporting} onClick={() => void exportCsv()}>
+          {exporting ? 'Generando…' : 'Exportar CSV'}
         </button>
       </Cabecera>
       <div className="g-cuerpo">

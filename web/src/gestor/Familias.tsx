@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { gestorApi, type FamilyDetail, type FamilyRow } from './api.ts';
 import { Cabecera } from './Cabecera.tsx';
 import { descargarCsv } from './descargar.ts';
@@ -21,12 +21,16 @@ export function Familias() {
   const [rows, setRows] = useState<FamilyRow[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [detail, setDetail] = useState<FamilyDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [semana, setSemana] = useState<number | null>(null);
   const [estado, setEstado] = useState<EstadoFamilia | null>(null);
   const [exporting, setExporting] = useState(false);
   const today = limaToday(new Date());
+  // The wanted family: if an older request's response arrives after a newer click, it must not
+  // overwrite the panel — otherwise the highlighted row and the detail shown can disagree.
+  const wanted = useRef<string | null>(null);
 
   useEffect(() => {
     gestorApi.familias()
@@ -37,10 +41,16 @@ export function Familias() {
   async function open(row: FamilyRow) {
     setSelected(row.familyId);
     setDetail(null);
+    setDetailError(null);
+    setError(null);
+    wanted.current = row.familyId;
     try {
-      setDetail(await gestorApi.familia(row.familyId));
+      const d = await gestorApi.familia(row.familyId);
+      if (wanted.current === row.familyId) setDetail(d);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo abrir la ficha');
+      if (wanted.current === row.familyId) {
+        setDetailError(cause instanceof Error ? cause.message : 'No se pudo abrir la ficha');
+      }
     }
   }
 
@@ -120,9 +130,11 @@ export function Familias() {
             <div aria-live="polite">
               {selected === null
                 ? <p className="g-faint">Elige una familia para ver su ficha. Abrirla queda registrado.</p>
-                : detail === null
-                  ? <p className="g-faint">Cargando…</p>
-                  : <Ficha detail={detail} />}
+                : detailError !== null
+                  ? <p className="g-error" role="alert">{detailError}</p>
+                  : detail === null
+                    ? <p className="g-faint">Cargando…</p>
+                    : <Ficha detail={detail} />}
             </div>
           </div>
         )}

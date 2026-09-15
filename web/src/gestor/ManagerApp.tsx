@@ -64,7 +64,7 @@ export default function ManagerApp() {
             </li>
           ))}
         </ul>
-        <button type="button" className="g-nav g-nav--salir" onClick={() => { signOut(); setSignedIn(false); }}>
+        <button type="button" className="g-nav g-nav--salir" onClick={() => { signOut(); setSignedIn(false); setView('tablero'); }}>
           Salir
         </button>
       </nav>

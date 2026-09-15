@@ -1,5 +1,5 @@
 import type { Dashboard } from './api.ts';
-import { fechaLarga, rangoSemana } from './tiempo.ts';
+import { fechaLarga, limaToday, rangoSemana } from './tiempo.ts';
 
 export interface Bar {
   semana: number;
@@ -60,7 +60,7 @@ export function reportPlainText(d: Dashboard, observaciones: string, generado: D
   ];
   const obs = observationLines(observaciones);
   if (obs.length > 0) lines.push('', 'Observaciones de campo:', ...obs.map((line) => `- ${line}`));
-  lines.push('', `Generado el ${fechaLarga(generado.toISOString().slice(0, 10))}. ${PRIVACY_FOOTER}`);
+  lines.push('', `Generado el ${fechaLarga(limaToday(generado))}. ${PRIVACY_FOOTER}`);
   return lines.join('\n');
 }
 
