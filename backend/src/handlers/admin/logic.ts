@@ -110,7 +110,12 @@ export interface FamilyDetail {
    */
   readonly notesCount: number;
   readonly feedback: readonly Feedback[];
-  readonly caregivers: FamilyRecord['caregivers'];
+  /** Role, declared relation and opt-in only: the manager's browser never receives phone numbers. */
+  readonly caregivers: ReadonlyArray<{
+    readonly role: FamilyRecord['caregivers'][number]['role'];
+    readonly relation: FamilyRecord['caregivers'][number]['relation'];
+    readonly optIn: boolean;
+  }>;
 }
 
 /**
@@ -160,7 +165,7 @@ export async function openFamilyDetail(
     notesVisible,
     notesCount: family.logEntries.filter((entry) => entry.note !== null && entry.note !== '').length,
     feedback: [...family.feedback].sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-    caregivers: family.caregivers,
+    caregivers: family.caregivers.map(({ role, relation, optIn }) => ({ role, relation, optIn })),
   };
 }
 

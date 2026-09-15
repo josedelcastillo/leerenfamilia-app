@@ -245,6 +245,14 @@ describe('detalle de familia', () => {
     assert.equal(detail.entries[0]?.note, 'le gustó el libro');
   });
 
+  test('no expone teléfonos de los cuidadores en el detalle', async () => {
+    // The manager's browser gets role, relation and opt-in only — never the msisdn or lastInboundAt
+    // used to notify by WhatsApp.
+    const detail = await openFamilyDetail(store, GESTOR, 'fam-1', TODAY, NOW);
+    assert.equal(JSON.stringify(detail).includes('+51'), false);
+    assert.deepEqual(detail.caregivers, [{ role: 'principal', relation: null, optIn: true }]);
+  });
+
   test('falla con not_found para una familia que no existe, sin auditar', async () => {
     await assert.rejects(
       () => openFamilyDetail(store, GESTOR, 'fam-inexistente', TODAY, NOW),

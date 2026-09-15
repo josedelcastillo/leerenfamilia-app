@@ -89,7 +89,7 @@ export interface FamilyDetail {
   notesVisible: boolean;
   notesCount: number;
   feedback: Feedback[];
-  caregivers: Array<{ msisdn: string; role: string; optIn: boolean; relation: 'mama' | 'papa' | 'otra' | null }>;
+  caregivers: Array<{ role: string; optIn: boolean; relation: 'mama' | 'papa' | 'otra' | null }>;
 }
 
 export interface ReplyOutcome {
