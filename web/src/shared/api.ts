@@ -36,9 +36,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+export type ActivityKind = 'lectura' | 'cancion' | 'juego' | 'conversacion';
+export type DeclaredBy = 'mama' | 'papa' | 'otra';
+
 export interface Activity {
   id: string;
-  kind: 'lectura' | 'cancion' | 'juego' | 'conversacion';
+  kind: ActivityKind;
   title: string;
   instructions: string;
   mediaUrl: string | null;
@@ -82,15 +85,17 @@ export interface LogEntry {
   clientId: string;
   date: string;
   kind: string;
-  minutes: number;
+  minutes: number | null;
   resourceId: string | null;
   note: string | null;
   loggedBy: string;
+  declaredBy: DeclaredBy | null;
 }
 
 export const api = {
   getContent: () => request<ContentResponse>('/contenido'),
-  listLog: () => request<{ entries: LogEntry[] }>('/seguimiento'),
+  listLog: () =>
+    request<{ entries: LogEntry[]; notesAuthorized: boolean; relation: DeclaredBy | null }>('/seguimiento'),
   listFeedback: () => request<{ feedback: Feedback[] }>('/feedback'),
   register: (payload: unknown) =>
     request<{ familyId: string; token: string; anchorDate: string }>('/registro', {

@@ -14,7 +14,7 @@ export function HistorialBitacora({ entries }: { entries: readonly HistorialEntr
     );
   }
 
-  const totalMinutes = entries.reduce((total, entry) => total + entry.minutes, 0);
+  const totalMinutes = entries.reduce((total, entry) => total + (entry.minutes ?? 0), 0);
   const days = new Set(entries.map((entry) => entry.date)).size;
 
   return (

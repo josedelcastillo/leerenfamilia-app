@@ -8,7 +8,7 @@ import { mergeThread } from '../src/app/mensajes-thread.ts';
 function stored(overrides: Partial<LogEntry> = {}): LogEntry {
   return {
     clientId: 'a', date: '2026-09-19', kind: 'lectura', minutes: 10,
-    resourceId: null, note: null, loggedBy: 'principal', ...overrides,
+    resourceId: null, note: null, loggedBy: 'principal', declaredBy: null, ...overrides,
   };
 }
 
@@ -65,6 +65,19 @@ describe('mergeHistorial', () => {
 
   test('sin nada devuelve una lista vacía', () => {
     assert.deepEqual(mergeHistorial([], []), []);
+  });
+
+  test('una entrada en cola sin minutos queda en null, no en cero, y lleva declaredBy', () => {
+    const [entry] = mergeHistorial([], [queued('b', { minutes: null, declaredBy: 'papa' })]);
+    assert.equal(entry?.minutes, null);
+    assert.equal(entry?.declaredBy, 'papa');
+  });
+
+  test('una entrada del servidor anterior a D-024 queda con declaredBy null', () => {
+    const legacy = { ...stored() } as Record<string, unknown>;
+    delete legacy['declaredBy'];
+    const [entry] = mergeHistorial([legacy as unknown as LogEntry], []);
+    assert.equal(entry?.declaredBy, null);
   });
 });
 

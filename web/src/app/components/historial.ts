@@ -1,13 +1,14 @@
-import type { LogEntry } from '../../shared/api.ts';
+import type { DeclaredBy, LogEntry } from '../../shared/api.ts';
 import type { QueuedItem } from '../../shared/sync-queue.ts';
 
 export interface HistorialEntry {
   readonly clientId: string;
   readonly date: string;
   readonly kind: string;
-  readonly minutes: number;
+  readonly minutes: number | null;
   readonly note: string | null;
   readonly resourceId: string | null;
+  readonly declaredBy: DeclaredBy | null;
   readonly pending: boolean;
 }
 
@@ -34,9 +35,10 @@ export function mergeHistorial(
       clientId: item.clientId,
       date: String(payload['date'] ?? ''),
       kind: String(payload['kind_actividad'] ?? ''),
-      minutes: Number(payload['minutes'] ?? 0),
+      minutes: payload['minutes'] === null || payload['minutes'] === undefined ? null : Number(payload['minutes']),
       note: typeof payload['note'] === 'string' ? payload['note'] : null,
       resourceId: typeof payload['resourceId'] === 'string' ? payload['resourceId'] : null,
+      declaredBy: isDeclaredBy(payload['declaredBy']) ? payload['declaredBy'] : null,
       pending: true,
     });
   }
@@ -46,9 +48,10 @@ export function mergeHistorial(
       clientId: entry.clientId,
       date: entry.date,
       kind: entry.kind,
-      minutes: entry.minutes,
+      minutes: entry.minutes ?? null,
       note: entry.note,
       resourceId: entry.resourceId,
+      declaredBy: entry.declaredBy ?? null,
       pending: false,
     });
   }
@@ -56,4 +59,8 @@ export function mergeHistorial(
   return [...merged.values()].sort(
     (a, b) => b.date.localeCompare(a.date) || a.clientId.localeCompare(b.clientId),
   );
+}
+
+function isDeclaredBy(value: unknown): value is DeclaredBy {
+  return value === 'mama' || value === 'papa' || value === 'otra';
 }
