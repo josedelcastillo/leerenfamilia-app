@@ -1012,6 +1012,11 @@ el reloj atrasado: queda como prueba, pero no abre las notas. La familia no qued
 pantalla de privacidad muestra el valor del servidor después de sincronizar: si el interruptor vuelve a
 su posición anterior, lo ve.
 
+**El orden de llegada también puede perder una autorización.** Si una autorización llega primero y una
+revocación más vieja llega después, las notas se cierran y la autorización se pierde; el teléfono que
+autorizó sigue mostrando "Activado" hasta que su pantalla de privacidad vuelva a leer el servidor, y el
+cuidador tiene que autorizar de nuevo — se acepta porque el error cae del lado privado.
+
 **Un reintento no duplica la prueba.** La clave del registro usa la hora del dispositivo, que un
 reintento no cambia, y no la de recepción, que sí. Reenviar la cola sobrescribe el mismo registro.
 

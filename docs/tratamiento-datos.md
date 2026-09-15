@@ -91,9 +91,16 @@ activa o lo desactiva desde la app, se guarda un registro aparte con el canal (`
 texto, qué cuidador lo cambió, el valor nuevo y la hora. El registro de la inscripción no se toca: la
 historia completa del consentimiento queda en la partición de la familia.
 
-Si dos cambios se cruzan —por ejemplo, dos teléfonos de la misma casa sin señal—, vale el más reciente
-según la hora en que se hizo, no el que llegó último, y en empate vale la revocación. Un cambio que
-llega tarde y ya fue superado queda como prueba pero no mueve el permiso (D-025).
+Los cambios pueden llegar en desorden —por ejemplo, dos teléfonos de la misma casa que estuvieron sin
+señal—, así que el sistema sigue estas reglas (D-025):
+
+- **Desactivar el permiso siempre lo cierra**, llegue cuando llegue. En caso de duda, las notas quedan
+  privadas.
+- **Activarlo solo lo abre si es el cambio más reciente**: tiene que haberse hecho después del último
+  cambio que fijó el permiso. Si no, no lo abre.
+- **Todo cambio deja su registro de prueba**, se haya aplicado o no.
+- **La familia ve el resultado final** en la pantalla "Tus datos" cuando su teléfono se sincroniza. Si
+  una activación suya no se aplicó, ahí lo ve y puede volver a activarlo.
 
 ### Puntos para el abogado
 
