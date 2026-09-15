@@ -1,19 +1,24 @@
 import { useState } from 'react';
-import { api } from '../shared/api.ts';
+import { ApiError, api, type DeclaredBy } from '../shared/api.ts';
 import { setToken } from '../shared/token.ts';
+import { RELATION_OPTIONS } from './registro-rapido.ts';
 
 /** The consent text is a placeholder pending legal review; see docs/tratamiento-datos.md. */
 const CONSENT_VERSION = 'borrador-0';
 
 /**
- * Enrolment from the clinic QR. Shown only when the device has no token — normally the family
- * arrives from the WhatsApp link and never sees this screen.
+ * Enrolment from the clinic QR (screen 1). Shown only when the device has no token — normally the
+ * family arrives from the WhatsApp link and never sees this screen.
+ *
+ * The design shows only the role and the consent; the enrolment fields stay because the programme
+ * needs them (baby's name, birth date, a phone number) — D-023.
  */
 export function Registro({ onRegistered }: { onRegistered: () => void }) {
   const [babyName, setBabyName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [msisdn, setMsisdn] = useState('');
   const [secondMsisdn, setSecondMsisdn] = useState('');
+  const [relation, setRelation] = useState<DeclaredBy | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [notesAuthorized, setNotesAuthorized] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,110 +34,92 @@ export function Registro({ onRegistered }: { onRegistered: () => void }) {
         clinic: new URLSearchParams(window.location.search).get('c') ?? '',
         baby: { name: babyName, birthDate },
         caregivers: [
-          { msisdn, role: 'principal' },
+          { msisdn, role: 'principal', relation },
           ...(secondMsisdn.trim() !== '' ? [{ msisdn: secondMsisdn, role: 'secundario' }] : []),
         ],
-        consent: {
-          accepted,
-          version: CONSENT_VERSION,
-          freeTextNotesAuthorized: notesAuthorized,
-        },
+        consent: { accepted, version: CONSENT_VERSION, freeTextNotesAuthorized: notesAuthorized },
       });
       setToken(response.token);
       onRegistered();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No pudimos completar el registro');
+      // A 4xx carries a sentence written for the family ("ese número ya está registrado").
+      // Anything else is a network problem, and the family gets no raw error for it.
+      setError(
+        cause instanceof ApiError && cause.status < 500
+          ? cause.message
+          : 'No pudimos registrarte sin señal. Intenta otra vez cuando tengas datos.',
+      );
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <section>
-      <h1>Bienvenida a Nacidos para Leer Perú</h1>
-      <p className="muted small">
-        Ocho semanas de actividades para leer, cantar, jugar y conversar con tu bebé.
-      </p>
+    <form className="pantalla" onSubmit={submit}>
+      <div className="pantalla__cuerpo">
+        <img className="lockup" src="/marca/lockup-horizontal.png" alt="Nacidos para Leer" width={168} />
+        <h1 className="titular titular--activacion">Ocho semanas leyendo con tu bebé, desde hoy.</h1>
+        <p className="lectura">
+          Cada semana recibes una actividad corta por WhatsApp. Aquí registras cuándo leyeron. Nada más.
+        </p>
 
-      <form onSubmit={submit} className="card">
-        <label htmlFor="bebe">¿Cómo se llama tu bebé?</label>
-        <input
-          id="bebe"
-          value={babyName}
-          required
-          autoComplete="off"
-          placeholder="Nombre o como le dicen en casa"
-          onChange={(event) => setBabyName(event.target.value)}
-        />
+        <fieldset className="opciones">
+          <legend className="etiqueta">¿Quién eres en casa?</legend>
+          {RELATION_OPTIONS.map((option) => (
+            <label key={option.value} className="opcion">
+              <input
+                type="radio"
+                name="relacion"
+                value={option.value}
+                checked={relation === option.value}
+                onChange={() => setRelation(option.value)}
+              />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
 
-        <label htmlFor="nacimiento">¿Cuándo nació?</label>
-        <input
-          id="nacimiento"
-          type="date"
-          value={birthDate}
-          required
-          onChange={(event) => setBirthDate(event.target.value)}
-        />
-
-        <label htmlFor="celular">Tu celular</label>
-        <input
-          id="celular"
-          type="tel"
-          inputMode="tel"
-          value={msisdn}
-          required
-          placeholder="987 654 321"
-          onChange={(event) => setMsisdn(event.target.value)}
-        />
-
-        <label htmlFor="celular2">Celular de otro cuidador (opcional)</label>
-        <input
-          id="celular2"
-          type="tel"
-          inputMode="tel"
-          value={secondMsisdn}
-          placeholder="Papá, abuela, quien acompañe"
-          onChange={(event) => setSecondMsisdn(event.target.value)}
-        />
-
-        <div className="card card--muted">
-          <p className="placeholder-note">
-            Texto de consentimiento pendiente de revisión legal. Borrador {CONSENT_VERSION}.
-          </p>
-          <label style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-            <input
-              type="checkbox"
-              checked={accepted}
-              required
-              onChange={(event) => setAccepted(event.target.checked)}
-              style={{ width: 'auto', minHeight: 'auto', marginTop: '0.35rem' }}
-            />
-            <span className="small">
-              Acepto participar y que Leer en Familia guarde el nombre de mi bebé, su fecha de
-              nacimiento y mi número de celular para acompañarnos durante el programa. Puedo darme
-              de baja cuando quiera escribiendo BAJA por WhatsApp.
-            </span>
-          </label>
-          <label style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
-            <input
-              type="checkbox"
-              checked={notesAuthorized}
-              onChange={(event) => setNotesAuthorized(event.target.checked)}
-              style={{ width: 'auto', minHeight: 'auto', marginTop: '0.35rem' }}
-            />
-            <span className="small">
-              Autorizo además que el equipo lea las notas que yo escriba en la bitácora. Si no
-              marcas esto, el equipo solo ve cuántas veces y cuánto tiempo, nunca lo que escribiste.
-            </span>
-          </label>
+        <div className="campo">
+          <label htmlFor="bebe">¿Cómo se llama tu bebé?</label>
+          <input id="bebe" value={babyName} required autoComplete="off"
+                 placeholder="Nombre o como le dicen en casa" onChange={(e) => setBabyName(e.target.value)} />
         </div>
+        <div className="campo">
+          <label htmlFor="nacimiento">¿Cuándo nació?</label>
+          <input id="nacimiento" type="date" value={birthDate} required onChange={(e) => setBirthDate(e.target.value)} />
+        </div>
+        <div className="campo">
+          <label htmlFor="celular">Tu celular</label>
+          <input id="celular" type="tel" inputMode="tel" value={msisdn} required placeholder="987 654 321"
+                 onChange={(e) => setMsisdn(e.target.value)} />
+        </div>
+        <div className="campo">
+          <label htmlFor="celular2">Celular de otra persona que cuida (opcional)</label>
+          <input id="celular2" type="tel" inputMode="tel" value={secondMsisdn} placeholder="Papá, abuela, quien acompañe"
+                 onChange={(e) => setSecondMsisdn(e.target.value)} />
+        </div>
+      </div>
 
-        {error !== null && <p className="banner banner--error">{error}</p>}
-
-        <button type="submit" className="btn" disabled={busy || !accepted}>
-          Registrarme
-        </button>
-      </form>
-    </section>
+      <div className="pantalla__accion">
+        <p className="placeholder-note">Texto de consentimiento pendiente de revisión legal. Borrador {CONSENT_VERSION}.</p>
+        <label className="consentimiento">
+          <input type="checkbox" checked={accepted} required onChange={(e) => setAccepted(e.target.checked)} />
+          <span>
+            Acepto participar y que Leer en Familia guarde el nombre de mi bebé, su fecha de nacimiento y mi
+            número de celular para acompañarnos durante el programa. Puedo darme de baja cuando quiera
+            escribiendo BAJA por WhatsApp.
+          </span>
+        </label>
+        <label className="consentimiento">
+          <input type="checkbox" checked={notesAuthorized} onChange={(e) => setNotesAuthorized(e.target.checked)} />
+          <span>
+            Autorizo además que el equipo lea las notas que escriba. Si no lo marco, el equipo solo ve cuántas
+            veces y cuánto tiempo, nunca lo que escribí. Puedo cambiarlo cuando quiera.
+          </span>
+        </label>
+        {error !== null && <p className="error-amable" role="alert">{error}</p>}
+        <button type="submit" className="btn" disabled={busy || !accepted}>Empezar</button>
+      </div>
+    </form>
   );
 }
