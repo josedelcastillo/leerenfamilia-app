@@ -8,6 +8,7 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "pretest": "node -e \"const [a,b]=process.versions.node.split('.').map(Number); if (a<22||(a===22&&b<18)) { console.error('Se requiere Node >= 22.18 (ejecuta: nvm use 22)'); process.exit(1); }\"",
     "test": "node --test",
     "test:watch": "node --test --watch",
     "typecheck": "tsc --noEmit",

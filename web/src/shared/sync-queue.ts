@@ -92,9 +92,12 @@ export class SyncQueue {
   /**
    * Drops an item that has not left the device. Returns false when it already did — or is leaving
    * right now — because then the server has it, and the log never takes anything back (D-024).
+   *
+   * Nothing is undone while any flush runs: a flush reads storage before it marks its batch in
+   * flight, and an item removed in that window would still be sent.
    */
   async discard(clientId: string): Promise<boolean> {
-    if (this.#inFlight.has(clientId)) return false;
+    if (this.#flushing || this.#inFlight.has(clientId)) return false;
     const present = (await this.#storage.all()).some((item) => item.clientId === clientId);
     if (present) await this.#storage.remove([clientId]);
     return present;

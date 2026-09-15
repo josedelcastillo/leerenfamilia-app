@@ -66,7 +66,7 @@ export function Tablero({ onGoTo }: { onGoTo: (view: 'familias' | 'bandeja' | 'r
                   <ul className="g-acciones">
                     {data.mensajesSinResponder > 0 && (
                       <li>
-                        <span>{data.mensajesSinResponder} {data.mensajesSinResponder === 1 ? 'comentario' : 'comentarios'} sin responder en la bandeja</span>
+                        <span>{data.mensajesSinResponder} {data.mensajesSinResponder === 1 ? 'mensaje' : 'mensajes'} sin responder en la bandeja</span>
                         <button type="button" className="g-enlace" onClick={() => onGoTo('bandeja')}>Abrir</button>
                       </li>
                     )}

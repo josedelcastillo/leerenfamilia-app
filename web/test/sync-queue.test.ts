@@ -279,6 +279,34 @@ describe('discard', () => {
     assert.equal(during, false);
   });
 
+  test('no deshace nada mientras corre un envío, aunque todavía no haya salido', async () => {
+    // A flush reads storage before it marks the batch in flight; an undo in that window could
+    // remove an item that is then sent anyway. While any flush runs, nothing is undone.
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x' });
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const flushing = q.flush(async (items) => {
+      await gate;
+      return items.map((item) => ({ clientId: item.clientId, status: 'ok' as const }));
+    });
+    const during = await q.discard('x');
+    release();
+    await flushing;
+    assert.equal(during, false);
+  });
+
+  test('vuelve a deshacer cuando el envío terminó', async () => {
+    const q = queue();
+    await q.enqueue('bitacora', { clientId: 'x' });
+    await q.flush(async () => {
+      throw new Error('sin señal');
+    });
+    assert.equal(await q.discard('x'), true);
+  });
+
   test('devuelve false para algo que ya no está en la cola', async () => {
     assert.equal(await queue().discard('nunca-existio'), false);
   });

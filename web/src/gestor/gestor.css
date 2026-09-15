@@ -86,7 +86,6 @@
   transition: background-color var(--ease), color var(--ease);
 }
 .g-chip[aria-pressed='true'] { background: var(--g-dark); border-color: var(--g-dark); color: #ffffff; }
-.g-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .g-error { font-size: 13px; color: var(--alert); }
 .g-aviso-ok { font-size: 13px; color: var(--ok); }
 

@@ -4,11 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Nacidos para Leer Peru - PWA (family and manager surfaces)",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "pretest": "node -e \"const [a,b]=process.versions.node.split('.').map(Number); if (a<22||(a===22&&b<18)) { console.error('Se requiere Node >= 22.18 (ejecuta: nvm use 22)'); process.exit(1); }\"",
     "test": "node --test && node scripts/check-contrast.mjs",
     "check:contrast": "node scripts/check-contrast.mjs"
   },

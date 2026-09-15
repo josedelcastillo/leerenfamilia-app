@@ -53,10 +53,11 @@ export function Auditoria() {
               </thead>
               <tbody>
                 {entries.length === 0 && <tr><td colSpan={4}>Sin accesos en los dos últimos meses.</td></tr>}
-                {entries.map((entry) => {
+                {entries.map((entry, index) => {
                   const row = auditRow(entry, today);
                   return (
-                    <tr key={`${entry.at}-${entry.gestorSub}`}>
+                    // Two entries can share a manager and a timestamp; the index keeps the key unique.
+                    <tr key={`${entry.at}-${entry.gestorSub}-${index}`}>
                       <td>{row.cuando}</td>
                       <td className="g-celda-principal">{row.quien}</td>
                       <td>{row.que}</td>

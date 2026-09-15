@@ -409,7 +409,6 @@ textarea {
 
 /* --- activation ---------------------------------------------------------- */
 .lockup { width: 168px; height: auto; display: block; margin: -12px 0 -14px -4px; }
-.formulario { display: flex; flex-direction: column; gap: 22px; }
 .error-amable { font-size: 15px; line-height: 1.5; color: var(--alert); }
 
 /* --- bottom tabs (D-023: they stay, restyled) ---------------------------- */
