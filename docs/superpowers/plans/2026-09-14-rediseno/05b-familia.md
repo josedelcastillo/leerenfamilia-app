@@ -420,7 +420,7 @@ algo falso a la familia.
 - [ ] **Step 1: Escribir el componente**
 
 ```tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api.ts';
 import type { QueuedItem, QueuedKind } from '../shared/sync-queue.ts';
 import { consentPayload, effectiveNotesConsent, suppressionPayload } from './privacidad.ts';
@@ -442,6 +442,10 @@ export function Privacidad({
   const [server, setServer] = useState<boolean | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // `busy` drives the disabled state but only takes effect on the next render; a very fast double
+  // tap can land both calls before that happens. This ref blocks the second one immediately.
+  const running = useRef(false);
 
   useEffect(() => {
     api.listLog().then((response) => setServer(response.notesAuthorized)).catch(() => undefined);
@@ -450,14 +454,29 @@ export function Privacidad({
   const authorized = effectiveNotesConsent(server, pendingItems);
 
   async function toggle() {
-    if (authorized === null) return;
-    await enqueue('consentimiento', consentPayload(crypto.randomUUID(), !authorized, new Date()));
+    if (authorized === null || running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await enqueue('consentimiento', consentPayload(crypto.randomUUID(), !authorized, new Date()));
+    } finally {
+      setBusy(false);
+      running.current = false;
+    }
   }
 
   async function requestErasure() {
-    await enqueue('feedback', suppressionPayload(crypto.randomUUID(), new Date()));
-    setConfirming(false);
-    setRequested(true);
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await enqueue('feedback', suppressionPayload(crypto.randomUUID(), new Date()));
+      setConfirming(false);
+      setRequested(true);
+    } finally {
+      setBusy(false);
+      running.current = false;
+    }
   }
 
   const explanation =
@@ -492,7 +511,7 @@ export function Privacidad({
         </dl>
         <div className="interruptor-caja">
           <button type="button" role="switch" className="interruptor" aria-checked={authorized === true}
-                  disabled={authorized === null} onClick={toggle}
+                  disabled={authorized === null || busy} onClick={toggle}
                   aria-labelledby="notas-titulo" aria-describedby="notas-explica">
             <span className="interruptor__perilla" />
           </button>
@@ -509,7 +528,7 @@ export function Privacidad({
         ) : confirming ? (
           <>
             <p className="meta">Esto pide al equipo que borre lo que registraste y tus datos de contacto.</p>
-            <button type="button" className="btn btn--secundario" onClick={requestErasure}>Sí, pedir que borren mis datos</button>
+            <button type="button" className="btn btn--secundario" disabled={busy} onClick={requestErasure}>Sí, pedir que borren mis datos</button>
             <button type="button" className="btn-texto" onClick={() => setConfirming(false)}>Cancelar</button>
           </>
         ) : (
@@ -608,6 +627,7 @@ function initialVista(): Vista {
 }
 
 export default function FamilyApp() {
+  // Read before the token capture below rewrites the URL.
   const [vista, setVista] = useState<Vista>(initialVista);
   // Runs once on load: pulls the token out of the WhatsApp deep link and clears it from the URL.
   const [token, setTokenState] = useState<string | null>(() => captureTokenFromUrl());
@@ -621,8 +641,17 @@ export default function FamilyApp() {
     api.listLog().then((response) => setRelation(response.relation)).catch(() => undefined);
   }, [token]);
 
+  // The deep link's `v` is a one-shot instruction; left in the URL, every reload would reopen it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('v')) return;
+    url.searchParams.delete('v');
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, []);
+
   const pendingIds = useMemo(() => new Set(sync.pendingItems.map((item) => item.clientId)), [sync.pendingItems]);
 
+  // `sync.enqueue` is a stable useCallback, so this is too — Inicio's access effect depends on it.
   const enqueue = sync.enqueue;
   /**
    * Showing a week records that the family looked at it (D-016). The client id is fixed per week
@@ -641,6 +670,19 @@ export default function FamilyApp() {
     [enqueue],
   );
 
+  const content = contenido.status === 'listo' ? contenido.content : null;
+  const actividadWeek = vista.tipo === 'actividad' ? content?.weeks.find((w) => w.week === vista.week) : undefined;
+  const actividad =
+    vista.tipo === 'actividad' ? actividadWeek?.activities.find((a) => a.id === vista.activityId) : undefined;
+  // A view that points at content that is not there (it changed underneath an open screen) goes
+  // back to the tabs. Done in an effect, not during render.
+  const unresolvable =
+    (vista.tipo === 'actividad' && actividad === undefined) || (vista.tipo === 'anteriores' && content === null);
+
+  useEffect(() => {
+    if (unresolvable) setVista({ tipo: 'tabs' });
+  }, [unresolvable]);
+
   if (token === null) {
     return (
       <div className="familia">
@@ -652,44 +694,63 @@ export default function FamilyApp() {
     );
   }
 
-  const content = contenido.status === 'listo' ? contenido.content : null;
   const back = () => setVista({ tipo: 'tabs' });
-  const openActivity = (week: number, activity: Activity) => setVista({ tipo: 'actividad', week, activityId: activity.id });
+  const openActivity = (week: number, activity: Activity) =>
+    setVista({ tipo: 'actividad', week, activityId: activity.id });
   const register = (week: number | null) =>
     setVista({ tipo: 'registro', kind: 'lectura', resourceId: null, week, initial: null });
 
   async function doneActivity(week: number, activity: Activity) {
-    const payload = firstTapPayload({ clientId: crypto.randomUUID(), date: todayLocal(), kind: activity.kind, resourceId: activity.id });
+    const payload = firstTapPayload({
+      clientId: crypto.randomUUID(),
+      date: todayLocal(),
+      kind: activity.kind,
+      resourceId: activity.id,
+    });
     await sync.enqueue('bitacora', payload);
     setVista({ tipo: 'registro', kind: activity.kind, resourceId: activity.id, week, initial: payload });
   }
 
-  let screen: ReactNode;
+  let screen: ReactNode = null;
   switch (vista.tipo) {
-    case 'actividad': {
-      const week = content?.weeks.find((w) => w.week === vista.week);
-      const activity = week?.activities.find((a) => a.id === vista.activityId);
-      screen = week !== undefined && activity !== undefined
-        ? <Actividad week={week} activity={activity} onBack={back}
-                     onOpen={(next) => openActivity(week.week, next)}
-                     onDone={() => void doneActivity(week.week, activity)} />
-        : null;
-      if (screen === null) back();
+    case 'actividad':
+      if (actividadWeek !== undefined && actividad !== undefined) {
+        const week = actividadWeek;
+        const activity = actividad;
+        screen = (
+          <Actividad
+            week={week}
+            activity={activity}
+            onBack={back}
+            onOpen={(next) => openActivity(week.week, next)}
+            onDone={() => void doneActivity(week.week, activity)}
+          />
+        );
+      }
       break;
-    }
     case 'registro':
       screen = (
-        <RegistroRapido key={vista.initial === null ? 'nuevo' : String(vista.initial['clientId'])}
-                        kind={vista.kind} resourceId={vista.resourceId} week={vista.week} relation={relation}
-                        initial={vista.initial} pendingIds={pendingIds} enqueue={sync.enqueue}
-                        discard={sync.discard} onDone={back} />
+        // A new key per navigation: a one-tap entry and a fresh "Registrar" never share state.
+        <RegistroRapido
+          key={vista.initial === null ? 'nuevo' : String(vista.initial['clientId'])}
+          kind={vista.kind}
+          resourceId={vista.resourceId}
+          week={vista.week}
+          relation={relation}
+          initial={vista.initial}
+          pendingIds={pendingIds}
+          enqueue={sync.enqueue}
+          discard={sync.discard}
+          onDone={back}
+        />
       );
       break;
     case 'anteriores':
-      screen = content !== null
-        ? <Anteriores content={content} onBack={back} onOpenActivity={openActivity} recordAccess={recordAccess} />
-        : null;
-      if (screen === null) back();
+      if (content !== null) {
+        screen = (
+          <Anteriores content={content} onBack={back} onOpenActivity={openActivity} recordAccess={recordAccess} />
+        );
+      }
       break;
     case 'cola':
       screen = <Cola online={sync.online} items={sync.pendingItems} onBack={back} />;
@@ -700,12 +761,21 @@ export default function FamilyApp() {
     case 'tabs':
       screen =
         tab === 'semana' ? (
-          <Inicio state={contenido} onOpenActivity={openActivity} onRegister={register}
-                  onOpenAnteriores={() => setVista({ tipo: 'anteriores' })} recordAccess={recordAccess} />
+          <Inicio
+            state={contenido}
+            onOpenActivity={openActivity}
+            onRegister={register}
+            onOpenAnteriores={() => setVista({ tipo: 'anteriores' })}
+            recordAccess={recordAccess}
+          />
         ) : tab === 'bitacora' ? (
-          <Progreso pendingItems={sync.pendingItems} syncedAt={sync.syncedAt}
-                    currentWeek={content === null ? 1 : Math.min(content.currentWeek, content.programWeeks)}
-                    onRegister={() => register(null)} onOpenPrivacidad={() => setVista({ tipo: 'privacidad' })} />
+          <Progreso
+            pendingItems={sync.pendingItems}
+            syncedAt={sync.syncedAt}
+            currentWeek={content === null ? 1 : Math.min(content.currentWeek, content.programWeeks)}
+            onRegister={() => register(null)}
+            onOpenPrivacidad={() => setVista({ tipo: 'privacidad' })}
+          />
         ) : (
           <Mensajes enqueue={sync.enqueue} pendingItems={sync.pendingItems} syncedAt={sync.syncedAt} />
         );
@@ -720,16 +790,24 @@ export default function FamilyApp() {
     <div className="familia">
       {withHalo && <div className="halo" aria-hidden="true" />}
       <main className={withTabs ? 'app' : 'app app--sin-tabs'}>
-        <Conexion online={sync.online} pending={visibleQueue(sync.pendingItems).length}
-                  rejected={sync.rejected.length} onDismiss={sync.dismissRejected}
-                  onOpenCola={() => setVista({ tipo: 'cola' })} />
+        <Conexion
+          online={sync.online}
+          pending={visibleQueue(sync.pendingItems).length}
+          rejected={sync.rejected.length}
+          onDismiss={sync.dismissRejected}
+          onOpenCola={() => setVista({ tipo: 'cola' })}
+        />
         {screen}
       </main>
       {withTabs && (
         <nav className="tabs" aria-label="Secciones">
           {TABS.map((item) => (
-            <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined}
-                    onClick={() => setTab(item.id)}>
+            <button
+              key={item.id}
+              type="button"
+              aria-current={tab === item.id ? 'page' : undefined}
+              onClick={() => setTab(item.id)}
+            >
               {item.label}
             </button>
           ))}
@@ -740,9 +818,14 @@ export default function FamilyApp() {
 }
 ```
 
-`back()` dentro del render en los casos `actividad` y `anteriores` es un setState durante el render. Si
-React avisa, cámbielo por un `useEffect` que vuelva a `tabs` cuando la vista ya no se pueda resolver. Solo
-pasa si el contenido cambió debajo de una vista abierta, que es un caso raro.
+Los casos `actividad` y `anteriores` no llaman `back()` durante el render (eso sería un setState ahí
+mismo). En vez de eso, `unresolvable` se calcula durante el render y un `useEffect` separado vuelve a
+`tabs` cuando la vista apunta a contenido que ya no está. Solo pasa si el contenido cambió debajo de
+una vista abierta, que es un caso raro.
+
+El efecto que limpia `?v=` corre una sola vez, en el mount, y no en el inicializador de `useState`: en
+`StrictMode` React llama los inicializadores dos veces, y la segunda llamada ya no vería el parámetro
+en la URL si la primera lo hubiera borrado ahí.
 
 - [ ] **Step 3: Borrar lo que quedó sin uso**
 

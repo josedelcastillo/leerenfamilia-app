@@ -63,6 +63,14 @@ export default function FamilyApp() {
     api.listLog().then((response) => setRelation(response.relation)).catch(() => undefined);
   }, [token]);
 
+  // The deep link's `v` is a one-shot instruction; left in the URL, every reload would reopen it.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has('v')) return;
+    url.searchParams.delete('v');
+    window.history.replaceState(window.history.state, '', url.toString());
+  }, []);
+
   const pendingIds = useMemo(() => new Set(sync.pendingItems.map((item) => item.clientId)), [sync.pendingItems]);
 
   // `sync.enqueue` is a stable useCallback, so this is too — Inicio's access effect depends on it.

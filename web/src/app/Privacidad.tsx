@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../shared/api.ts';
 import type { QueuedItem, QueuedKind } from '../shared/sync-queue.ts';
 import { consentPayload, effectiveNotesConsent, suppressionPayload } from './privacidad.ts';
@@ -20,6 +20,10 @@ export function Privacidad({
   const [server, setServer] = useState<boolean | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [requested, setRequested] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // `busy` drives the disabled state but only takes effect on the next render; a very fast double
+  // tap can land both calls before that happens. This ref blocks the second one immediately.
+  const running = useRef(false);
 
   useEffect(() => {
     api.listLog().then((response) => setServer(response.notesAuthorized)).catch(() => undefined);
@@ -28,14 +32,29 @@ export function Privacidad({
   const authorized = effectiveNotesConsent(server, pendingItems);
 
   async function toggle() {
-    if (authorized === null) return;
-    await enqueue('consentimiento', consentPayload(crypto.randomUUID(), !authorized, new Date()));
+    if (authorized === null || running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await enqueue('consentimiento', consentPayload(crypto.randomUUID(), !authorized, new Date()));
+    } finally {
+      setBusy(false);
+      running.current = false;
+    }
   }
 
   async function requestErasure() {
-    await enqueue('feedback', suppressionPayload(crypto.randomUUID(), new Date()));
-    setConfirming(false);
-    setRequested(true);
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await enqueue('feedback', suppressionPayload(crypto.randomUUID(), new Date()));
+      setConfirming(false);
+      setRequested(true);
+    } finally {
+      setBusy(false);
+      running.current = false;
+    }
   }
 
   const explanation =
@@ -70,7 +89,7 @@ export function Privacidad({
         </dl>
         <div className="interruptor-caja">
           <button type="button" role="switch" className="interruptor" aria-checked={authorized === true}
-                  disabled={authorized === null} onClick={toggle}
+                  disabled={authorized === null || busy} onClick={toggle}
                   aria-labelledby="notas-titulo" aria-describedby="notas-explica">
             <span className="interruptor__perilla" />
           </button>
@@ -87,7 +106,7 @@ export function Privacidad({
         ) : confirming ? (
           <>
             <p className="meta">Esto pide al equipo que borre lo que registraste y tus datos de contacto.</p>
-            <button type="button" className="btn btn--secundario" onClick={requestErasure}>Sí, pedir que borren mis datos</button>
+            <button type="button" className="btn btn--secundario" disabled={busy} onClick={requestErasure}>Sí, pedir que borren mis datos</button>
             <button type="button" className="btn-texto" onClick={() => setConfirming(false)}>Cancelar</button>
           </>
         ) : (
