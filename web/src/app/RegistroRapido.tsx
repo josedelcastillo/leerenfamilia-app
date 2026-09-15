@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ActivityKind, DeclaredBy } from '../shared/api.ts';
 import type { QueuedKind } from '../shared/sync-queue.ts';
 import { todayLocal } from './formato.ts';
@@ -34,8 +34,13 @@ export function RegistroRapido({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const copy = KIND_COPY[kind];
+  // `busy` drives the disabled state but only takes effect on the next render; a very fast double
+  // tap can land both calls before that happens. This ref blocks the second one immediately.
+  const running = useRef(false);
 
   async function register() {
+    if (running.current) return;
+    running.current = true;
     setBusy(true);
     try {
       const payload = firstTapPayload({ clientId: crypto.randomUUID(), date: todayLocal(), kind, resourceId });
@@ -43,17 +48,20 @@ export function RegistroRapido({
       setEntry(payload);
     } finally {
       setBusy(false);
+      running.current = false;
     }
   }
 
   async function saveDetails() {
-    if (entry === null) return;
+    if (entry === null || running.current) return;
+    running.current = true;
     setBusy(true);
     try {
       await enqueue('bitacora', detailsPayload(entry, { minutes, declaredBy: who, note }));
       onDone();
     } finally {
       setBusy(false);
+      running.current = false;
     }
   }
 
